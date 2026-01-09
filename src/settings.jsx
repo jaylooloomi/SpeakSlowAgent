@@ -2,17 +2,22 @@ import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 import { toast, Toaster } from "sonner";
-import { Settings, Save, Eye, EyeOff, X, Loader2, TestTube, CheckCircle, XCircle, Mic, Shield } from "lucide-react";
+import { Settings, Save, Eye, EyeOff, X, Loader2, TestTube, CheckCircle, XCircle, Mic, Shield, Globe } from "lucide-react";
 import { usePermissions } from "./hooks/usePermissions";
 import PermissionCard from "./components/ui/permission-card";
+import { useTranslation } from "./i18n";
 
 const SettingsPage = () => {
+  const { t, language, setLanguage, languages } = useTranslation();
+
   const [settings, setSettings] = useState({
     ai_api_key: "",
     ai_base_url: "https://api.openai.com/v1",
     ai_model: "gpt-3.5-turbo",
     enable_ai_optimization: false,
-    enable_notifications: true
+    enable_notifications: true,
+    language: "zh-TW",
+    convert_transcription: true
   });
   
   const [customModel, setCustomModel] = useState(false);
@@ -53,7 +58,9 @@ const SettingsPage = () => {
           ai_base_url: allSettings.ai_base_url || "https://api.openai.com/v1",
           ai_model: allSettings.ai_model || "gpt-3.5-turbo",
           enable_ai_optimization: allSettings.enable_ai_optimization === true, // 默认为false
-          enable_notifications: allSettings.enable_notifications !== false // 默认为true
+          enable_notifications: allSettings.enable_notifications !== false, // 默认为true
+          language: allSettings.language || "zh-TW", // 默认繁体中文
+          convert_transcription: allSettings.convert_transcription !== false // 默认转换
         };
         setSettings(prev => ({ ...prev, ...loadedSettings }));
         
@@ -276,22 +283,80 @@ const SettingsPage = () => {
             <div className="p-6">
               <div className="mb-4">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 chinese-title">
-                  一般设置
+                  {t('settings.generalSettings')}
                 </h2>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  应用的基本设置选项。
+                  {t('settings.generalDescription')}
                 </p>
               </div>
 
               <div className="space-y-4">
+                {/* 语言选择 */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                      <Globe className="w-4 h-4" />
+                      {t('settings.language')}
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {t('settings.languageDesc')}
+                    </p>
+                  </div>
+                  <select
+                    value={settings.language}
+                    onChange={async (e) => {
+                      const newLang = e.target.value;
+                      handleInputChange('language', newLang);
+                      await setLanguage(newLang);
+                      if (window.electronAPI) {
+                        await window.electronAPI.setSetting('language', newLang);
+                      }
+                      window.dispatchEvent(new Event('language-changed'));
+                      toast.success(t('notifications.languageChanged'));
+                    }}
+                    className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="zh-TW">繁體中文</option>
+                    <option value="zh-CN">简体中文</option>
+                  </select>
+                </div>
+
+                {/* 转换识别结果 */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                      {t('settings.convertTranscription')}
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {t('settings.convertTranscriptionDesc')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={settings.convert_transcription}
+                    onClick={() => handleToggleChange('convert_transcription', !settings.convert_transcription)}
+                    className={`${
+                      settings.convert_transcription ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                    } relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`${
+                        settings.convert_transcription ? 'translate-x-4' : 'translate-x-0'
+                      } inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                    />
+                  </button>
+                </div>
+
                 {/* 通知开关 */}
                 <div className="flex items-center justify-between">
                   <div>
                     <label htmlFor="notifications-toggle" className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                      显示通知
+                      {t('settings.notifications')}
                     </label>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      控制是否显示操作成功等提示通知
+                      {t('settings.notificationsDesc')}
                     </p>
                   </div>
                   <button

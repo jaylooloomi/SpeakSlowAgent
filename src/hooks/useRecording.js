@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useModelStatus } from './useModelStatus';
+import { convertText } from '../i18n';
 
 /**
  * 录音功能Hook
@@ -135,29 +136,37 @@ export const useRecording = () => {
         const transcriptionResult = await window.electronAPI.transcribeAudio(uint8Array);
 
         if (transcriptionResult.success) {
-          const raw_text = transcriptionResult.text;
-          
+          let raw_text = transcriptionResult.text;
+
+          // 检查是否需要转换为繁体中文
+          const targetLang = await window.electronAPI.getSetting('language', 'zh-TW');
+          const shouldConvert = await window.electronAPI.getSetting('convert_transcription', true);
+
+          if (shouldConvert && targetLang === 'zh-TW') {
+            raw_text = convertText(raw_text, 'zh-TW');
+          }
+
           // 准备转录数据
           const transcriptionData = {
             raw_text: raw_text,
             text: raw_text, // 初始文本设为原始文本
             confidence: transcriptionResult.confidence || 0,
-            language: transcriptionResult.language || 'zh-CN',
+            language: targetLang,
             duration: transcriptionResult.duration || 0,
             file_size: uint8Array.length,
           };
 
-          // 立即显示初步结果
+          // 立即显示初步结果（已转换）
           if (window.onTranscriptionComplete) {
-            window.onTranscriptionComplete({ ...transcriptionResult, enhanced_by_ai: false });
+            window.onTranscriptionComplete({ ...transcriptionResult, text: raw_text, enhanced_by_ai: false });
           }
 
           // 异步处理AI优化和保存（只保存一次）
           setIsOptimizing(true);
           setTimeout(async () => {
             try {
-              // 从设置中读取是否启用AI优化
-              const useAI = await window.electronAPI.getSetting('enable_ai_optimization', true);
+              // 从设置中读取是否启用AI优化（默认关闭）
+              const useAI = await window.electronAPI.getSetting('enable_ai_optimization', false);
 
               let finalData = { ...transcriptionData };
 
