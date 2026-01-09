@@ -124,16 +124,16 @@ const TextDisplay = ({ originalText, processedText, isProcessing, onCopy, onExpo
 
   return (
     <div className="space-y-4">
-      {/* 原始识别文本 - 简化设计，单行显示 */}
+      {/* 原始识别文本 - 完整显示 */}
       {originalText && (
         <div className="bg-slate-100/80 dark:bg-gray-800/80 rounded-lg p-3 shadow-sm">
-          <div className="flex items-center justify-between">
-            <p className="chinese-content text-gray-800 dark:text-gray-200 flex-1 truncate pr-2">
-              {originalText}
-            </p>
+          <p className="chinese-content text-gray-800 dark:text-gray-200 leading-relaxed">
+            {originalText}
+          </p>
+          <div className="flex justify-end mt-2 pt-2 border-t border-slate-200/50 dark:border-gray-700/50">
             <button
               onClick={() => onCopy(originalText)}
-              className="p-1.5 hover:bg-slate-200/70 dark:hover:bg-gray-700/70 rounded-md transition-colors flex-shrink-0"
+              className="p-1.5 hover:bg-slate-200/70 dark:hover:bg-gray-700/70 rounded-md transition-colors"
               title="复制识别文本"
             >
               <Copy className="w-4 h-4 text-slate-600 dark:text-gray-400" />
@@ -219,6 +219,31 @@ export default function App() {
   const [processedText, setProcessedText] = useState("");
   const [showTextArea, setShowTextArea] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+
+  // 加载通知设置
+  useEffect(() => {
+    const loadNotificationSetting = async () => {
+      if (window.electronAPI) {
+        const enabled = await window.electronAPI.getSetting('enable_notifications', true);
+        setNotificationsEnabled(enabled !== false);
+      }
+    };
+    loadNotificationSetting();
+
+    // 监听设置变化
+    const handleSettingsChange = () => {
+      loadNotificationSetting();
+    };
+    window.addEventListener('settings-changed', handleSettingsChange);
+    return () => window.removeEventListener('settings-changed', handleSettingsChange);
+  }, []);
+
+  // 条件性显示通知的辅助函数
+  const showNotification = useCallback((type, message, options) => {
+    if (!notificationsEnabled && type !== 'error') return;
+    toast[type](message, options);
+  }, [notificationsEnabled]);
   
   const { isDragging, handleMouseDown, handleMouseMove, handleMouseUp, handleClick } = useWindowDrag();
   const modelStatus = useModelStatus();
@@ -262,20 +287,20 @@ export default function App() {
         console.log("📱 使用 Electron API 进行粘贴");
         await window.electronAPI.pasteText(text);
         console.log("✅ 粘贴成功");
-        toast.success("文本已自动粘贴到当前输入框");
+        showNotification('success', "文本已自动粘贴到当前输入框");
       } else {
         // Web环境下只能复制到剪贴板
         console.log("🌐 Web环境，仅复制到剪贴板");
         await navigator.clipboard.writeText(text);
-        toast.info("文本已复制到剪贴板，请手动粘贴");
+        showNotification('info', "文本已复制到剪贴板，请手动粘贴");
       }
     } catch (error) {
       console.error("❌ 粘贴文本失败:", error);
-      toast.error("粘贴失败", {
+      showNotification('error', "粘贴失败", {
         description: "请检查辅助功能权限。文本已复制到剪贴板 - 请手动使用 Cmd+V 粘贴。"
       });
     }
-  }, []);
+  }, [showNotification]);
 
   // 处理录音完成（FunASR识别完成）
   const handleRecordingComplete = useCallback(async (transcriptionResult) => {
@@ -294,11 +319,11 @@ export default function App() {
       
       // 注意：不在这里保存到数据库，由 useRecording.js 统一处理保存逻辑
 
-      toast.success("🎤 语音识别完成，AI正在优化文本...");
+      showNotification('success', "语音识别完成");
     } else {
       console.log("❌ 转录失败或无文本:", transcriptionResult);
     }
-  }, []);
+  }, [showNotification]);
 
   // 处理AI优化完成
   const handleAIOptimizationComplete = useCallback(async (optimizedResult) => {
@@ -311,8 +336,8 @@ export default function App() {
       console.log("📋 准备粘贴AI优化后的文本:", optimizedResult.text);
       await safePaste(optimizedResult.text);
       console.log("✅ AI优化文本粘贴完成");
-      
-      toast.success("🤖 AI文本优化完成并已自动粘贴！");
+
+      showNotification('success', "AI文本优化完成");
       console.log('AI优化文本已设置:', optimizedResult.text);
     } else {
       console.warn('AI优化结果无效，使用原始文本:', optimizedResult);
@@ -320,10 +345,10 @@ export default function App() {
       if (originalText) {
         console.log("📋 AI优化失败，粘贴原始文本:", originalText);
         await safePaste(originalText);
-        toast.info("AI优化失败，已粘贴原始识别文本");
+        showNotification('info', "已粘贴原始识别文本");
       }
     }
-  }, [safePaste, originalText]);
+  }, [safePaste, originalText, showNotification]);
 
   // 设置转录完成回调
   useEffect(() => {
@@ -345,32 +370,32 @@ export default function App() {
   }, [handleRecordingComplete, handleAIOptimizationComplete]);
 
   // 处理复制文本
-  const handleCopyText = async (text) => {
+  const handleCopyText = useCallback(async (text) => {
     try {
       if (window.electronAPI) {
         const result = await window.electronAPI.copyText(text);
         if (result.success) {
-          toast.success("文本已复制到剪贴板");
+          showNotification('success', "文本已复制到剪贴板");
         } else {
           throw new Error(result.error || "复制失败");
         }
       } else {
         await navigator.clipboard.writeText(text);
-        toast.success("文本已复制到剪贴板");
+        showNotification('success', "文本已复制到剪贴板");
       }
     } catch (error) {
       console.error("复制文本失败:", error);
-      toast.error(`无法复制文本到剪贴板: ${error.message}`);
+      showNotification('error', `无法复制文本到剪贴板: ${error.message}`);
     }
-  };
+  }, [showNotification]);
 
 
   // 处理导出文本
-  const handleExportText = async (text) => {
+  const handleExportText = useCallback(async (text) => {
     try {
       if (window.electronAPI) {
         await window.electronAPI.exportTranscriptions('txt');
-        toast.success("文本已导出到文件");
+        showNotification('success', "文本已导出到文件");
       } else {
         // Web环境下载文件
         const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
@@ -382,53 +407,53 @@ export default function App() {
         URL.revokeObjectURL(url);
       }
     } catch (error) {
-      toast.error("无法导出文本文件");
+      showNotification('error', "无法导出文本文件");
     }
-  };
+  }, [showNotification]);
 
   // 处理模型下载
   const handleDownloadModels = useCallback(async () => {
     try {
       // 显示开始下载的提示
-      toast.info("📥 开始下载模型文件...");
-      
+      showNotification('info', "开始下载模型文件...");
+
       const result = await modelStatus.downloadModels();
       if (result.success) {
-        toast.success("🎉 模型下载完成，正在加载...");
+        showNotification('success', "模型下载完成，正在加载...");
       } else {
-        toast.error(`❌ 模型下载失败: ${result.error}`);
+        showNotification('error', `模型下载失败: ${result.error}`);
       }
     } catch (error) {
       console.error('下载模型失败:', error);
-      toast.error(`❌ 模型下载失败: ${error.message}`);
+      showNotification('error', `模型下载失败: ${error.message}`);
     }
-  }, [modelStatus]);
+  }, [modelStatus, showNotification]);
 
   // 切换录音状态
   const toggleRecording = useCallback(() => {
     // 检查模型状态
     if (modelStatus.stage === 'need_download') {
-      toast.warning("📥 请先下载AI模型文件");
+      showNotification('warning', "请先下载AI模型文件");
       return;
     }
-    
+
     if (modelStatus.stage === 'downloading') {
-      toast.warning("⬇️ 模型正在下载中，请稍候...");
+      showNotification('warning', "模型正在下载中，请稍候...");
       return;
     }
-    
+
     if (modelStatus.stage === 'loading') {
-      toast.warning("🤖 模型正在加载中，请稍候...");
+      showNotification('warning', "模型正在加载中，请稍候...");
       return;
     }
-    
+
     if (modelStatus.stage === 'error') {
-      toast.error(`❌ 模型错误: ${modelStatus.error}`);
+      showNotification('error', `模型错误: ${modelStatus.error}`);
       return;
     }
-    
+
     if (!modelStatus.isReady) {
-      toast.warning("⏳ 模型未就绪，请稍候...");
+      showNotification('warning', "模型未就绪，请稍候...");
       return;
     }
 
@@ -437,7 +462,7 @@ export default function App() {
     } else if (isRecording) {
       stopRecording();
     }
-  }, [modelStatus, isRecording, isRecordingProcessing, startRecording, stopRecording]);
+  }, [modelStatus, isRecording, isRecordingProcessing, startRecording, stopRecording, showNotification]);
 
   // 使用热键Hook，不再使用F2双击功能
   const { hotkey, syncRecordingState, registerHotkey } = useHotkey();

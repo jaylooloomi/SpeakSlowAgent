@@ -11,7 +11,8 @@ const SettingsPage = () => {
     ai_api_key: "",
     ai_base_url: "https://api.openai.com/v1",
     ai_model: "gpt-3.5-turbo",
-    enable_ai_optimization: true
+    enable_ai_optimization: false,
+    enable_notifications: true
   });
   
   const [customModel, setCustomModel] = useState(false);
@@ -51,7 +52,8 @@ const SettingsPage = () => {
           ai_api_key: allSettings.ai_api_key || "",
           ai_base_url: allSettings.ai_base_url || "https://api.openai.com/v1",
           ai_model: allSettings.ai_model || "gpt-3.5-turbo",
-          enable_ai_optimization: allSettings.enable_ai_optimization !== false // 默认为true
+          enable_ai_optimization: allSettings.enable_ai_optimization === true, // 默认为false
+          enable_notifications: allSettings.enable_notifications !== false // 默认为true
         };
         setSettings(prev => ({ ...prev, ...loadedSettings }));
         
@@ -94,6 +96,30 @@ const SettingsPage = () => {
       ...prev,
       [key]: value
     }));
+  };
+
+  // 处理开关切换并自动保存
+  const handleToggleChange = async (key, value) => {
+    setSettings(prev => ({
+      ...prev,
+      [key]: value
+    }));
+
+    // 立即保存开关状态
+    try {
+      if (window.electronAPI) {
+        await window.electronAPI.setSetting(key, value);
+        // 根据不同的设置项显示不同的提示
+        if (key === 'enable_ai_optimization') {
+          toast.success(value ? "已启用AI文本优化" : "已关闭AI文本优化");
+        } else if (key === 'enable_notifications') {
+          toast.success(value ? "已启用通知" : "已关闭通知");
+        }
+      }
+    } catch (error) {
+      console.error("保存设置失败:", error);
+      toast.error("保存设置失败");
+    }
   };
 
   // 应用推荐配置
@@ -245,6 +271,50 @@ const SettingsPage = () => {
             </div>
           </div>
 
+          {/* 一般设置部分 */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 mb-6">
+            <div className="p-6">
+              <div className="mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 chinese-title">
+                  一般设置
+                </h2>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  应用的基本设置选项。
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                {/* 通知开关 */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label htmlFor="notifications-toggle" className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                      显示通知
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      控制是否显示操作成功等提示通知
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={settings.enable_notifications}
+                    onClick={() => handleToggleChange('enable_notifications', !settings.enable_notifications)}
+                    className={`${
+                      settings.enable_notifications ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                    } relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`${
+                        settings.enable_notifications ? 'translate-x-4' : 'translate-x-0'
+                      } inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                    />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* AI配置部分 */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
             <div className="p-6">
@@ -267,7 +337,7 @@ const SettingsPage = () => {
                    type="button"
                    role="switch"
                    aria-checked={settings.enable_ai_optimization}
-                   onClick={() => handleInputChange('enable_ai_optimization', !settings.enable_ai_optimization)}
+                   onClick={() => handleToggleChange('enable_ai_optimization', !settings.enable_ai_optimization)}
                    className={`${
                      settings.enable_ai_optimization ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
                    } relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
