@@ -77,6 +77,19 @@ const VoiceWaveIndicator = React.memo(({ isListening }) => {
   );
 });
 
+// 處理中小進度條 - 簡單一條放在文字下面
+const ProcessingProgressBar = React.memo(({ stage = 'processing' }) => {
+  const barColor = stage === 'optimizing'
+    ? 'bg-gradient-to-r from-emerald-400 to-emerald-500'
+    : 'bg-gradient-to-r from-blue-400 to-blue-500';
+
+  return (
+    <div className="w-32 h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mx-auto mt-2">
+      <div className={`h-full ${barColor} rounded-full processing-progress-bar`} />
+    </div>
+  );
+});
+
 // 增强的工具提示组件
 const Tooltip = ({ children, content, position = "top" }) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -911,6 +924,11 @@ export default function App() {
               t('app.clickToRecord', { hotkey })
             )}
           </p>
+
+          {/* 處理中/優化中的小進度條 */}
+          {(micState === "processing" || micState === "optimizing") && (
+            <ProcessingProgressBar stage={micState === "optimizing" ? 'optimizing' : 'processing'} />
+          )}
 
           {/* 串流辨識即時文字顯示 */}
           {streamingMode && isRecording && fullText && (

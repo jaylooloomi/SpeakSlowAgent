@@ -514,6 +514,115 @@ html, body {
   }
 }
 
+/* 處理中進度條動畫 - 假進度條讓人感覺有在動 */
+@keyframes processing-progress {
+  0% {
+    width: 0%;
+  }
+  10% {
+    width: 15%;
+  }
+  30% {
+    width: 40%;
+  }
+  50% {
+    width: 60%;
+  }
+  70% {
+    width: 75%;
+  }
+  90% {
+    width: 85%;
+  }
+  100% {
+    width: 92%;
+  }
+}
+
+.processing-progress-bar {
+  animation: processing-progress 3s ease-out forwards;
+}
+
+/* 處理完成時的進度條 */
+@keyframes processing-complete {
+  0% {
+    width: 92%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+.processing-complete-bar {
+  animation: processing-complete 0.3s ease-out forwards;
+}
+
+/* 音波處理動畫 */
+@keyframes audio-wave-process {
+  0%, 100% {
+    transform: scaleY(0.3);
+  }
+  25% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.5);
+  }
+  75% {
+    transform: scaleY(0.8);
+  }
+}
+
+.audio-wave-bar {
+  animation: audio-wave-process 0.8s ease-in-out infinite;
+}
+
+/* 脈衝光暈效果 */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.8), 0 0 30px rgba(59, 130, 246, 0.4);
+  }
+}
+
+.pulse-glow {
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+/* 旋轉處理圖示 */
+@keyframes spin-processing {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.spin-processing {
+  animation: spin-processing 1s linear infinite;
+}
+
+/* 彈跳點點動畫 */
+@keyframes bounce-dot {
+  0%, 80%, 100% {
+    transform: scale(0);
+  }
+  40% {
+    transform: scale(1);
+  }
+}
+
+.bounce-dot {
+  animation: bounce-dot 1.4s ease-in-out infinite both;
+}
+
+.bounce-dot:nth-child(1) { animation-delay: -0.32s; }
+.bounce-dot:nth-child(2) { animation-delay: -0.16s; }
+.bounce-dot:nth-child(3) { animation-delay: 0s; }
+
 /* FunASR错误状态动画 */
 @keyframes error-pulse {
   0%, 100% {
