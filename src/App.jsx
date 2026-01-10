@@ -393,8 +393,9 @@ export default function App() {
         await window.electronAPI.pasteText(text);
       }
 
-      showNotification('success', t('notifications.copied'));
+      // 不需要成功通知，文字已經貼上了使用者自然知道
     } catch (error) {
+      // 失敗時才需要通知
       showNotification('error', t('notifications.pasteFailed'), {
         description: t('notifications.pasteFailedDesc')
       });
@@ -412,9 +413,9 @@ export default function App() {
       // 清空之前的处理结果，等待AI优化
       setProcessedText("");
 
-      showNotification('success', t('notifications.transcriptionComplete'));
+      // 不需要成功通知，文字出來就知道成功了
     }
-  }, [showNotification, t]);
+  }, []);
 
   // 处理AI优化完成
   const handleAIOptimizationComplete = useCallback(async (optimizedResult) => {
@@ -425,7 +426,7 @@ export default function App() {
       // 自动粘贴AI优化后的文本
       await safePaste(optimizedResult.text);
 
-      showNotification('success', t('notifications.aiComplete'));
+      // 不需要成功通知，文字出來就知道成功了
     } else {
       // AI优化未启用或失败，使用 optimizedResult.text（即原始文本）
       const textToPaste = optimizedResult.text;
@@ -433,7 +434,7 @@ export default function App() {
         await safePaste(textToPaste);
       }
     }
-  }, [safePaste, showNotification, t]);
+  }, [safePaste]);
 
   // 设置转录完成回调
   useEffect(() => {

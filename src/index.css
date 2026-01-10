@@ -514,33 +514,22 @@ html, body {
   }
 }
 
-/* 處理中進度條動畫 - 假進度條讓人感覺有在動 */
+/* 處理中進度條動畫 - 無限來回掃描 */
 @keyframes processing-progress {
   0% {
-    width: 0%;
-  }
-  10% {
-    width: 15%;
-  }
-  30% {
-    width: 40%;
+    transform: translateX(-100%);
   }
   50% {
-    width: 60%;
-  }
-  70% {
-    width: 75%;
-  }
-  90% {
-    width: 85%;
+    transform: translateX(200%);
   }
   100% {
-    width: 92%;
+    transform: translateX(-100%);
   }
 }
 
 .processing-progress-bar {
-  animation: processing-progress 3s ease-out forwards;
+  width: 40%;
+  animation: processing-progress 1.5s ease-in-out infinite;
 }
 
 /* 處理完成時的進度條 */
