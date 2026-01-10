@@ -121,6 +121,7 @@ class FunASRServer:
                     disable_update=True,
                     device="cpu",
                     ncpu=ncpu,  # 優化：增加 CPU 線程數
+                    quantize=True,  # ONNX 量化，預期提升 40% 速度
                 )
             logger.info(f"ASR模型加载完成 (ncpu={ncpu})")
             return True
@@ -190,14 +191,19 @@ class FunASRServer:
             logger.info("开始加载串流ASR模型...")
             with suppress_stdout():
                 from funasr import AutoModel
+                import os
+                cpu_count = os.cpu_count() or 4
+                ncpu = min(cpu_count, 8)
 
                 self.streaming_model = AutoModel(
                     model="paraformer-zh-streaming",
                     model_revision="v2.0.4",
                     disable_update=True,
                     device="cpu",
+                    ncpu=ncpu,  # 優化：增加 CPU 線程數
+                    quantize=True,  # ONNX 量化加速
                 )
-            logger.info("串流ASR模型加载完成")
+            logger.info(f"串流ASR模型加载完成 (ncpu={ncpu}, quantized)")
             return True
         except Exception as e:
             logger.error(f"串流ASR模型加载失败: {str(e)}")
@@ -450,13 +456,14 @@ class FunASRServer:
             # 假設是 16-bit PCM，16kHz
             audio_chunk = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
 
-            # 串流辨識參數 - 優化延遲
+            # 串流辨識參數 - 極速優化
             # [0, 10, 5] = 600ms 延遲（原設定）
-            # [0, 8, 4] = 480ms 延遲（更快響應）
-            # [0, 6, 3] = 360ms 延遲（極速，可能影響準確度）
-            chunk_size = [0, 8, 4]  # 優化：480ms 延遲，平衡速度與準確度
-            encoder_chunk_look_back = 4
-            decoder_chunk_look_back = 1
+            # [0, 8, 4] = 480ms 延遲（較快響應）
+            # [0, 6, 3] = 360ms 延遲（極速模式）
+            # [0, 5, 2] = 300ms 延遲（超極速，可能影響準確度）
+            chunk_size = [0, 6, 3]  # 極速：360ms 延遲
+            encoder_chunk_look_back = 2  # 從 4 降到 2，減少上下文依賴
+            decoder_chunk_look_back = 0  # 從 1 降到 0，最快解碼
 
             # 執行串流辨識
             res = self.streaming_model.generate(
