@@ -110,13 +110,19 @@ class FunASRServer:
             with suppress_stdout():
                 from funasr import AutoModel
 
+                # 獲取 CPU 核心數，用於優化線程設置
+                import os
+                cpu_count = os.cpu_count() or 4
+                ncpu = min(cpu_count, 8)  # 最多用 8 線程，避免過度競爭
+
                 self.asr_model = AutoModel(
                     model="damo/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-pytorch",
                     model_revision="v2.0.4",
                     disable_update=True,
                     device="cpu",
+                    ncpu=ncpu,  # 優化：增加 CPU 線程數
                 )
-            logger.info("ASR模型加载完成")
+            logger.info(f"ASR模型加载完成 (ncpu={ncpu})")
             return True
         except Exception as e:
             logger.error(f"ASR模型加载失败: {str(e)}")
@@ -134,6 +140,8 @@ class FunASRServer:
                     model_revision="v2.0.4",
                     disable_update=True,
                     device="cpu",
+                    # VAD 優化參數
+                    max_single_segment_time=30000,  # 最大單段 30 秒（預設 60 秒），加快處理
                 )
             logger.info("VAD模型加载完成")
             return True
@@ -289,13 +297,17 @@ class FunASRServer:
             logger.info(f"开始转录音频文件: {audio_path}")
 
             # 设置默认选项
+            # batch_size_s: 語音識別時每批次處理的最大秒數
+            # - 60 秒：適合長音訊批量處理
+            # - 30 秒：適合即時語音輸入，平衡速度與準確度
+            # - 15 秒：極速模式，適合短音訊
             default_options = {
-                "batch_size_s": 60,
+                "batch_size_s": 30,  # 優化：從 60 降到 30，加快短音訊處理
                 "hotword": "",
                 "use_vad": True,
                 "use_punc": True,  # 使用FunASR自带的标点恢复
                 "language": "zh",
-                "use_vad_segmentation": True,  # 新增：是否使用 VAD 分段辨識
+                "use_vad_segmentation": True,  # 是否使用 VAD 分段辨識
             }
 
             if options:
@@ -438,8 +450,11 @@ class FunASRServer:
             # 假設是 16-bit PCM，16kHz
             audio_chunk = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
 
-            # 串流辨識參數
-            chunk_size = [0, 10, 5]  # 600ms 延遲
+            # 串流辨識參數 - 優化延遲
+            # [0, 10, 5] = 600ms 延遲（原設定）
+            # [0, 8, 4] = 480ms 延遲（更快響應）
+            # [0, 6, 3] = 360ms 延遲（極速，可能影響準確度）
+            chunk_size = [0, 8, 4]  # 優化：480ms 延遲，平衡速度與準確度
             encoder_chunk_look_back = 4
             decoder_chunk_look_back = 1
 
