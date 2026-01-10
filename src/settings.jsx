@@ -5,6 +5,7 @@ import { toast, Toaster } from "sonner";
 import { Settings, Save, Eye, EyeOff, X, Loader2, TestTube, CheckCircle, XCircle, Mic, Shield, Globe } from "lucide-react";
 import { usePermissions } from "./hooks/usePermissions";
 import PermissionCard from "./components/ui/permission-card";
+import HotkeySettings from "./components/HotkeySettings";
 import { useTranslation, LanguageProvider } from "./i18n";
 
 const SettingsPage = () => {
@@ -379,6 +380,13 @@ const SettingsPage = () => {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* 快捷鍵設定部分 */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 mb-6">
+            <div className="p-6">
+              <HotkeySettings />
             </div>
           </div>
 
