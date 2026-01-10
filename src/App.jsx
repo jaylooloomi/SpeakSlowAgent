@@ -102,16 +102,42 @@ const PROCESSING_MESSAGES = [
   '等我一下喔...',
 ];
 
-// 隨機訊息 Hook - 在狀態變化時隨機選擇，之後保持不變
+// Fisher-Yates shuffle 演算法
+const shuffleArray = (array) => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
+// 隨機訊息 Hook - Shuffle 輪播版本（像隨機播放音樂一樣）
+// 每個訊息都會出現一次，播完一輪再重新打亂
 const useRandomMessage = (isActive, messages) => {
   const [message, setMessage] = useState('');
   const prevActiveRef = useRef(false);
+  const shuffledQueueRef = useRef([]);
+  const lastMessageRef = useRef('');
 
   useEffect(() => {
     // 只在狀態從 false 變成 true 時選擇新訊息
     if (isActive && !prevActiveRef.current) {
-      const randomIndex = Math.floor(Math.random() * messages.length);
-      setMessage(messages[randomIndex]);
+      // 如果隊列空了，重新 shuffle
+      if (shuffledQueueRef.current.length === 0) {
+        let newQueue = shuffleArray(messages);
+        // 避免新一輪的第一個跟上一輪最後一個重複
+        if (newQueue[0] === lastMessageRef.current && newQueue.length > 1) {
+          // 把第一個移到後面去
+          newQueue = [...newQueue.slice(1), newQueue[0]];
+        }
+        shuffledQueueRef.current = newQueue;
+      }
+
+      // 從隊列取出下一個訊息
+      const nextMessage = shuffledQueueRef.current.shift();
+      lastMessageRef.current = nextMessage;
+      setMessage(nextMessage);
     }
     prevActiveRef.current = isActive;
   }, [isActive, messages]);
