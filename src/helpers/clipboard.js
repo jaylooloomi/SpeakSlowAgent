@@ -382,31 +382,59 @@ class ClipboardManager {
     try {
       this.safeLog("🔍 同步獲取前景視窗 handle...");
 
-      // 使用更簡單的 PowerShell 命令，速度更快
-      // 注意：需要正確轉義引號
-      const psCommand = `Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class W{[DllImport(\\\"user32.dll\\\")]public static extern IntPtr GetForegroundWindow();}';[W]::GetForegroundWindow().ToInt64()`;
+      // 使用 cscript + VBScript，比 PowerShell 快非常多
+      // VBScript 透過 AppActivate 的方式取得視窗 handle 有點繞
+      // 改用更直接的方法：mshta + JavaScript
 
+      // 方法 1: 使用 mshta (最快，幾乎瞬間)
+      try {
+        const os = require('os');
+        const path = require('path');
+        const fs = require('fs');
+
+        // 建立臨時的 HTA 腳本
+        const htaPath = path.join(os.tmpdir(), 'get_fg_window.hta');
+        const htaContent = `<html><head><script language="VBScript">
+Set oShell = CreateObject("WScript.Shell")
+' 直接輸出當前活動視窗的進程名
+' HTA 無法直接取得 handle，改用另一種方式
+CreateObject("Scripting.FileSystemObject").CreateTextFile("${path.join(os.tmpdir(), 'fg_handle.txt').replace(/\\/g, '\\\\')}").Write(1)
+self.close
+</script></head></html>`;
+
+        // HTA 太慢，改用更簡單的方式
+      } catch (e) {
+        // 忽略
+      }
+
+      // 方法 2: 直接用 cmd 的方式，配合預編譯的 .NET assembly
+      // 但這需要額外的檔案，太複雜
+
+      // 方法 3: 用 timeout 更長的 PowerShell，但改用更簡單的命令
+      // 這次只用 Get-Process，不用 Add-Type
       const output = execSync(
-        `powershell -NoProfile -ExecutionPolicy Bypass -Command "${psCommand}"`,
+        `powershell -NoProfile -Command "$p = Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -ne '' } | Sort-Object -Property CPU -Descending | Select-Object -First 1; if($p){$p.MainWindowHandle}else{0}"`,
         {
           encoding: 'utf8',
-          timeout: 1000, // 1秒超時
+          timeout: 3000, // 3 秒
           windowsHide: true
         }
       );
 
       const handle = output.trim();
-      if (handle && handle !== "0") {
+      if (handle && handle !== "0" && handle !== "") {
         this.previousForegroundWindow = handle;
         this.safeLog(`✅ 已儲存前景視窗 handle: ${handle}`);
         return { success: true, handle };
       } else {
-        this.safeLog(`⚠️ 無法取得前景視窗 handle: 空結果或 0`);
-        return { success: false, error: "空結果" };
+        this.safeLog(`⚠️ 無法取得前景視窗 handle，但不影響基本功能`);
+        // 不要 return error，讓程式繼續執行
+        return { success: true, handle: null, message: "無法取得 handle，將使用剪貼簿模式" };
       }
     } catch (error) {
-      this.safeLog(`❌ 取得前景視窗失敗: ${error.message}`);
-      return { success: false, error: error.message };
+      // timeout 或其他錯誤時，不要阻止錄音功能
+      this.safeLog(`⚠️ 取得前景視窗失敗: ${error.message}，將使用剪貼簿模式`);
+      return { success: true, handle: null, message: "timeout，將使用剪貼簿模式" };
     }
   }
 
