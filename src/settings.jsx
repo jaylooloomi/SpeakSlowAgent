@@ -123,7 +123,10 @@ const SettingsPage = () => {
           toast.success(value ? t('notifications.aiEnabled') : t('notifications.aiDisabled'));
         } else if (key === 'enable_notifications') {
           toast.success(value ? t('notifications.enabled') : t('notifications.disabled'));
+        } else if (key === 'enable_streaming_mode') {
+          toast.success(value ? '串流辨識模式已開啟' : '串流辨識模式已關閉');
         }
+        // 設定變更會透過 IPC 自動廣播到所有視窗
       }
     } catch (error) {
       console.error("保存设置失败:", error);

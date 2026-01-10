@@ -112,6 +112,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return () => ipcRenderer.removeListener("hotkey-changed", handler);
   },
 
+  // 監聽設定變更事件（跨視窗通知）
+  onSettingChanged: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on("setting-changed", handler);
+    return () => ipcRenderer.removeListener("setting-changed", handler);
+  },
+
   // 文件操作
   exportTranscriptions: (format) => ipcRenderer.invoke("export-transcriptions", format),
   importSettings: () => ipcRenderer.invoke("import-settings"),

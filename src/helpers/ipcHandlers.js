@@ -151,7 +151,17 @@ class IPCHandlers {
     });
 
     ipcMain.handle("set-setting", (event, key, value) => {
-      return this.databaseManager.setSetting(key, value);
+      const result = this.databaseManager.setSetting(key, value);
+
+      // 廣播設定變更到所有視窗（用於跨視窗同步）
+      const { BrowserWindow } = require('electron');
+      BrowserWindow.getAllWindows().forEach(win => {
+        if (!win.isDestroyed()) {
+          win.webContents.send('setting-changed', { key, value });
+        }
+      });
+
+      return result;
     });
 
     ipcMain.handle("get-all-settings", () => {

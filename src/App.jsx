@@ -295,6 +295,19 @@ export default function App() {
       }
     };
     loadStreamingMode();
+
+    // 監聽設定變更事件（跨視窗同步）
+    if (window.electronAPI?.onSettingChanged) {
+      const unsubscribe = window.electronAPI.onSettingChanged((data) => {
+        if (data.key === 'enable_streaming_mode') {
+          setStreamingMode(data.value);
+          console.log('串流模式已更新:', data.value);
+        }
+      });
+      return () => {
+        if (unsubscribe) unsubscribe();
+      };
+    }
   }, []);
 
   // 統一的錄音狀態（根據模式選擇）
