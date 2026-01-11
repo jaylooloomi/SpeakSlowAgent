@@ -49,13 +49,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
   restoreForegroundWindow: () => ipcRenderer.invoke("restore-foreground-window"),
 
   // 数据库操作
-  saveTranscription: (text, processedText) => 
+  saveTranscription: (text, processedText) =>
     ipcRenderer.invoke("save-transcription", text, processedText),
-  getTranscriptions: (limit, offset) => 
+  getTranscriptions: (limit, offset) =>
     ipcRenderer.invoke("get-transcriptions", limit, offset),
-  deleteTranscription: (id) => 
+  getTranscriptionStats: () =>
+    ipcRenderer.invoke("get-transcription-stats"),
+  deleteTranscription: (id) =>
     ipcRenderer.invoke("delete-transcription", id),
-  clearAllTranscriptions: () => 
+  clearAllTranscriptions: () =>
     ipcRenderer.invoke("clear-all-transcriptions"),
 
   // 设置管理

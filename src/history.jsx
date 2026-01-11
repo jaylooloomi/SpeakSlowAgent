@@ -60,17 +60,8 @@ const HistoryPage = () => {
 };
 
 // 統計橫幅組件 - 用幽默方式展示成就
-const StatsBanner = ({ transcriptions, t }) => {
-  const stats = React.useMemo(() => {
-    const totalChars = transcriptions.reduce((sum, item) => {
-      const text = item.processed_text || item.text || '';
-      return sum + text.length;
-    }, 0);
-    const totalRecords = transcriptions.length;
-    const totalDuration = transcriptions.reduce((sum, item) => sum + (item.duration || 0), 0);
-
-    return { totalChars, totalRecords, totalDuration };
-  }, [transcriptions]);
+const StatsBanner = ({ stats }) => {
+  // stats 直接從 API 獲取，包含真實的總數
 
   // 根據字數給出幽默評語和顏色等級
   const getLevelInfo = (chars) => {
@@ -101,9 +92,9 @@ const StatsBanner = ({ transcriptions, t }) => {
     return colorMap[color] || colorMap.gray;
   };
 
-  const { emoji, message, color, borderClass } = getLevelInfo(stats.totalChars);
+  const { emoji, message, color, borderClass } = getLevelInfo(stats?.totalChars || 0);
 
-  if (stats.totalRecords === 0) {
+  if (!stats || stats.total === 0) {
     return null; // 沒有記錄時不顯示
   }
 
@@ -117,7 +108,7 @@ const StatsBanner = ({ transcriptions, t }) => {
               <div className="flex items-baseline space-x-1 flex-wrap">
                 <span className="text-sm text-gray-600 dark:text-gray-400">已經幫你辨識了</span>
                 <span className={`text-2xl font-bold ${getNumberColorClass(color)}`}>
-                  {stats.totalChars.toLocaleString()}
+                  {(stats.totalChars || 0).toLocaleString()}
                 </span>
                 <span className="text-sm text-gray-600 dark:text-gray-400">個字</span>
               </div>
@@ -125,9 +116,9 @@ const StatsBanner = ({ transcriptions, t }) => {
             </div>
           </div>
           <div className="text-right text-sm text-gray-500 dark:text-gray-400">
-            <div>{stats.totalRecords} 次辨識</div>
-            {stats.totalDuration > 0 && (
-              <div>累計 {Math.round(stats.totalDuration / 60)} 分鐘</div>
+            <div>{stats.total || 0} 次辨識</div>
+            {(stats.totalDuration || 0) > 0 && (
+              <div>累計 {Math.round((stats.totalDuration || 0) / 60)} 分鐘</div>
             )}
           </div>
         </div>
@@ -142,16 +133,22 @@ const HistoryContent = ({ onCopy, t }) => {
   const [loading, setLoading] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [filteredTranscriptions, setFilteredTranscriptions] = React.useState([]);
+  const [stats, setStats] = React.useState(null); // 真實的統計數據
 
-  // 加载转录历史
+  // 加载转录历史和統計
   const loadTranscriptions = async () => {
     if (!window.electronAPI) return;
 
     setLoading(true);
     try {
-      const result = await window.electronAPI.getTranscriptions(100, 0);
+      // 同時獲取記錄列表和統計數據
+      const [result, statsResult] = await Promise.all([
+        window.electronAPI.getTranscriptions(100, 0),
+        window.electronAPI.getTranscriptionStats()
+      ]);
       setTranscriptions(result || []);
       setFilteredTranscriptions(result || []);
+      setStats(statsResult);
     } catch (error) {
       console.error("加载历史记录失败:", error);
     } finally {
@@ -261,7 +258,7 @@ const HistoryContent = ({ onCopy, t }) => {
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-4xl mx-auto">
           {/* 統計橫幅 */}
-          {!loading && <StatsBanner transcriptions={transcriptions} t={t} />}
+          {!loading && stats && <StatsBanner stats={stats} />}
 
           {loading ? (
             <div className="flex items-center justify-center py-12">

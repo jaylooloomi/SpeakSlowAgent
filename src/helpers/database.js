@@ -123,18 +123,29 @@ class DatabaseManager {
   getTranscriptionStats() {
     const totalStmt = this.db.prepare("SELECT COUNT(*) as total FROM transcriptions");
     const todayStmt = this.db.prepare(`
-      SELECT COUNT(*) as today FROM transcriptions 
+      SELECT COUNT(*) as today FROM transcriptions
       WHERE date(created_at) = date('now')
     `);
     const weekStmt = this.db.prepare(`
-      SELECT COUNT(*) as week FROM transcriptions 
+      SELECT COUNT(*) as week FROM transcriptions
       WHERE created_at >= date('now', '-7 days')
     `);
+
+    // 計算總字數和總時長
+    const charsStmt = this.db.prepare(`
+      SELECT
+        COALESCE(SUM(LENGTH(COALESCE(processed_text, text, ''))), 0) as totalChars,
+        COALESCE(SUM(duration), 0) as totalDuration
+      FROM transcriptions
+    `);
+    const charsResult = charsStmt.get();
 
     return {
       total: totalStmt.get().total,
       today: todayStmt.get().today,
-      week: weekStmt.get().week
+      week: weekStmt.get().week,
+      totalChars: charsResult.totalChars,
+      totalDuration: charsResult.totalDuration
     };
   }
 
