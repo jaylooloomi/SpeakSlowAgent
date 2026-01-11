@@ -73,19 +73,21 @@ const StatsBanner = ({ transcriptions, t }) => {
   }, [transcriptions]);
 
   // 根據字數給出幽默評語
-  const getFunMessage = (chars) => {
-    if (chars === 0) return { emoji: '🎤', message: '準備好開始你的語音之旅了嗎？' };
-    if (chars < 100) return { emoji: '🐣', message: '剛起步，繼續加油！' };
-    if (chars < 500) return { emoji: '🚶', message: '小有成就，穩步前進中～' };
-    if (chars < 1000) return { emoji: '🏃', message: '進入狀況了！手指終於可以休息了' };
-    if (chars < 2000) return { emoji: '🚀', message: '效率達人！打字員要失業了' };
-    if (chars < 5000) return { emoji: '⚡', message: '語音輸入高手！鍵盤已經在哭了' };
-    if (chars < 10000) return { emoji: '🔥', message: '超級用戶！你的聲音價值連城' };
-    if (chars < 50000) return { emoji: '👑', message: '傳說級玩家！語音輸入之神' };
-    return { emoji: '🏆', message: '史詩成就！你拯救了無數鍵盤的生命' };
+  const getFunMessage = (chars, records) => {
+    if (chars === 0) return { emoji: '🤫', message: '別害羞，說點什麼吧～' };
+    if (chars < 100) return { emoji: '👋', message: '才剛認識你，期待聽更多！' };
+    if (chars < 500) return { emoji: '🗣️', message: '話匣子慢慢打開了～' };
+    if (chars < 1000) return { emoji: '💬', message: '看來你蠻有話說的嘛！' };
+    if (chars < 2000) return { emoji: '📢', message: '你說的比寫的多，手指感謝你' };
+    if (chars < 5000) return { emoji: '🎙️', message: '話很多欸！但我喜歡聽' };
+    if (chars < 10000) return { emoji: '📚', message: '這些字夠寫一篇論文了' };
+    if (chars < 30000) return { emoji: '🎓', message: '你是不是哲學大師？思想真多' };
+    if (chars < 50000) return { emoji: '✍️', message: '可以出書了，書名就叫《我說的》' };
+    if (chars < 100000) return { emoji: '🏛️', message: '你的語錄比孔子還多' };
+    return { emoji: '🌟', message: '傳說中的話癆本癆，致敬！' };
   };
 
-  const { emoji, message } = getFunMessage(stats.totalChars);
+  const { emoji, message } = getFunMessage(stats.totalChars, stats.totalRecords);
 
   if (stats.totalRecords === 0) {
     return null; // 沒有記錄時不顯示
@@ -98,13 +100,14 @@ const StatsBanner = ({ transcriptions, t }) => {
           <div className="flex items-center space-x-3">
             <span className="text-3xl">{emoji}</span>
             <div>
-              <div className="flex items-baseline space-x-2">
+              <div className="flex items-baseline space-x-1 flex-wrap">
+                <span className="text-sm text-gray-600 dark:text-gray-400">已經幫你辨識了</span>
                 <span className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
                   {stats.totalChars.toLocaleString()}
                 </span>
                 <span className="text-sm text-gray-600 dark:text-gray-400">個字</span>
               </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">{message}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-500 mt-0.5">{message}</p>
             </div>
           </div>
           <div className="text-right text-sm text-gray-500 dark:text-gray-400">
