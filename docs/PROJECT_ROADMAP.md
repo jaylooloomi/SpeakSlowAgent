@@ -536,6 +536,126 @@ self.recognizer = sherpa_onnx.OfflineRecognizer.from_paraformer(
 
 ---
 
+## 極限速度優化方案 🆕
+
+### VAD (Voice Activity Detection) - 尚未啟用 ⚠️
+
+目前 `sherpa_server.py` 沒有啟用 VAD，每次都處理完整音訊。
+
+#### VAD 的優勢
+
+| 優化項 | 效果 |
+|--------|------|
+| **跳過靜音段** | 只處理有人聲的部分，減少計算量 |
+| **更快的響應** | 檢測到語音結束立即處理，不等錄音停止 |
+| **降低 CPU 負載** | 靜音時幾乎不消耗資源 |
+| **改善串流體驗** | 配合串流辨識實現即時轉錄 |
+
+#### Sherpa-ONNX VAD 參數
+
+```python
+import sherpa_onnx
+
+# VAD 配置
+vad_config = sherpa_onnx.VadModelConfig()
+vad_config.silero_vad.model = "silero_vad.onnx"  # 需下載
+
+# 關鍵參數
+vad_config.silero_vad.threshold = 0.5          # 語音概率閾值 (0.2~0.9)
+vad_config.silero_vad.min_silence_duration = 0.25  # 最小靜音時長(秒)
+vad_config.silero_vad.min_speech_duration = 0.25   # 最小語音時長(秒)
+vad_config.silero_vad.max_speech_duration = 5.0    # 最大語音時長(秒)
+vad_config.silero_vad.window_size = 512       # 窗口大小 (512/1024/1536 for 16kHz)
+
+vad_config.sample_rate = 16000
+
+# 創建 VAD
+vad = sherpa_onnx.VoiceActivityDetector(vad_config, buffer_size_in_seconds=30)
+```
+
+#### VAD 參數調優建議
+
+| 場景 | threshold | min_silence | 說明 |
+|------|-----------|-------------|------|
+| **極速模式** | 0.3 | 0.15 | 靈敏檢測，可能誤觸發 |
+| **平衡模式** | 0.5 | 0.25 | 預設值，推薦 |
+| **穩定模式** | 0.7 | 0.4 | 抗噪強，可能漏檢 |
+
+#### TEN VAD - 新選擇 (2025)
+
+2025 年 7 月 sherpa-onnx 整合了 **TEN VAD**，比 Silero VAD 更優：
+
+| 特性 | Silero VAD | TEN VAD |
+|------|------------|---------|
+| **延遲** | ~300ms | ~50ms |
+| **CPU 佔用** | ~43% (Pi) | 更低 |
+| **短靜音檢測** | 較差 | 優秀 |
+| **語音結束檢測** | 有延遲 | 快速 |
+
+### 其他極限優化項目
+
+#### 1. 音訊預處理優化
+
+```python
+# 前端已做 (useRecording.js)
+echoCancellation: true,    # ✅ 回音消除
+noiseSuppression: true,    # ✅ 噪音抑制
+autoGainControl: true      # ✅ 自動增益
+
+# 可額外添加
+- RNNoise AI 降噪（更強）
+- 高通濾波（去低頻噪音）
+- 音量正規化
+```
+
+#### 2. 執行緒優化
+
+```python
+# 目前固定 4 執行緒
+num_threads=4
+
+# 可優化為動態調整
+import os
+num_threads = min(os.cpu_count(), 8)  # 最多 8 執行緒
+```
+
+#### 3. 模型切換 - 速度 vs 準確度
+
+| 模型 | 大小 | 速度 | 準確度 | 推薦場景 |
+|------|------|------|--------|----------|
+| Paraformer-large | 880MB | 1x | 最高 | 正式場合 |
+| **Paraformer (int8)** | 223MB | 2x | 高 | ✅ 目前使用 |
+| SenseVoice-small | 200MB | 3x | 中高 | 極速需求 |
+
+#### 4. 前端優化
+
+```javascript
+// 可做的優化
+- Web Worker 背景處理音訊轉換（不阻塞 UI）
+- AudioWorklet 替代 ScriptProcessor（更低延遲）
+- 預載 AudioContext（減少首次啟動延遲）
+```
+
+### 優化實作優先序
+
+| 優先級 | 項目 | 預期效果 | 複雜度 |
+|--------|------|----------|--------|
+| 🔴 高 | **啟用 Silero VAD** | 減少 30-50% 處理時間 | 中 |
+| 🔴 高 | **動態執行緒** | 提升多核利用率 | 低 |
+| 🟡 中 | TEN VAD 評估 | 更低延遲 | 中 |
+| 🟡 中 | Web Worker 音訊處理 | UI 更流暢 | 中 |
+| 🟢 低 | RNNoise 降噪 | 嘈雜環境準確度提升 | 高 |
+| 🟢 低 | SenseVoice 模型 | 3x 速度（犧牲準確度）| 低 |
+
+### 參考資料
+
+- [Sherpa-ONNX VAD Settings](https://medium.com/@nadirapovey/sherpa-onnx-vad-settings-0d7a9854e018)
+- [Silero VAD Documentation](https://k2-fsa.github.io/sherpa/onnx/vad/silero-vad.html)
+- [TEN VAD on HuggingFace](https://huggingface.co/TEN-framework/ten-vad)
+- [Best VAD Comparison 2025](https://picovoice.ai/blog/best-voice-activity-detection-vad-2025/)
+
+---
+
 ## AI 文字優化服務研究
 
 ### 價格對比總結
@@ -630,22 +750,26 @@ ASR:
 2. ✅ 字典功能實作（事後替換）
 3. 🔄 DeepSeek AI 整合
 
-### Phase 1.5：熱詞與雙模型 🆕
+### Phase 1.5：極限優化與雙模型 🆕
 
-4. 🔜 下載 Zipformer Bilingual 模型
-5. 🔜 實作雙模型切換
-6. 🔜 熱詞功能整合（需 Zipformer）
-7. 🔜 中英混合辨識測試
+4. 🔜 **啟用 Silero VAD** - 跳過靜音段，減少 30-50% 處理時間
+5. 🔜 動態執行緒調整 - 提升多核利用率
+6. 🔜 下載 Zipformer Bilingual 模型
+7. 🔜 實作雙模型切換
+8. 🔜 熱詞功能整合（需 Zipformer）
+9. 🔜 中英混合辨識測試
 
 ### Phase 2：中期
 
-8. 串流辨識恢復（利用 Zipformer 串流能力）
-9. AprilVoice 網頁版基礎架構
+10. 串流辨識恢復（利用 Zipformer 串流能力 + VAD）
+11. Web Worker 音訊處理（UI 更流暢）
+12. AprilVoice 網頁版基礎架構
 
 ### Phase 3：長期
 
-10. 手機 App 開發
-11. 語音識別資料整理文檔
+13. TEN VAD 評估（比 Silero 更快）
+14. 手機 App 開發
+15. 語音識別資料整理文檔
 
 ---
 
@@ -653,6 +777,7 @@ ASR:
 
 | 日期 | 版本 | 更新內容 |
 |------|------|----------|
+| 2025-01-12 | 1.3 | 新增極限速度優化方案（VAD、執行緒、音訊處理） |
 | 2025-01-12 | 1.2 | 新增熱詞功能規格、ASR 模型優化狀態、雙模型策略 |
 | 2025-01-12 | 1.1 | 字典功能完成，更新實作狀態 |
 | 2025-01-12 | 1.0 | 初版建立 |
