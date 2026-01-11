@@ -35,8 +35,29 @@ export const useStreamingRecording = () => {
   const SILENCE_THRESHOLD = 0.01;        // 靜音門檻（音量 RMS）
   const SILENCE_DURATION = 400;          // 靜音持續多久觸發分段（ms）- 更快的分段
 
+  // 麥克風權限狀態快取
+  const micPermissionRef = useRef('unknown');
+
   // 使用模型狀態 Hook
   const modelStatus = useModelStatus();
+
+  // 預查詢麥克風權限狀態
+  useEffect(() => {
+    const checkMicPermission = async () => {
+      if (navigator.permissions) {
+        try {
+          const result = await navigator.permissions.query({ name: 'microphone' });
+          micPermissionRef.current = result.state;
+          result.onchange = () => {
+            micPermissionRef.current = result.state;
+          };
+        } catch (e) {
+          // 某些瀏覽器不支援 permissions API
+        }
+      }
+    };
+    checkMicPermission();
+  }, []);
 
   // 清理資源
   const cleanup = useCallback(() => {
@@ -93,7 +114,13 @@ export const useStreamingRecording = () => {
         throw new Error('您的瀏覽器不支援錄音功能');
       }
 
-      // 請求麥克風權限
+      // ⚡ 立即設定錄音狀態，讓 UI 馬上反應
+      // 如果麥克風權限已授權，可以安全地先顯示錄音中
+      if (micPermissionRef.current === 'granted') {
+        setIsRecording(true);
+      }
+
+      // 請求麥克風權限（這是最慢的步驟）
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           sampleRate: 16000,
@@ -103,6 +130,12 @@ export const useStreamingRecording = () => {
           autoGainControl: true
         }
       });
+
+      // 如果之前沒有權限，現在有了，更新狀態
+      if (micPermissionRef.current !== 'granted') {
+        micPermissionRef.current = 'granted';
+        setIsRecording(true);
+      }
 
       streamRef.current = stream;
 
@@ -169,7 +202,6 @@ export const useStreamingRecording = () => {
       }
 
       streamingActiveRef.current = true;
-      setIsRecording(true);
 
       // 定期發送音頻數據（每 300ms，配合超極速 chunk_size）
       sendIntervalRef.current = setInterval(async () => {

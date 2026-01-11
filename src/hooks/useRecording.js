@@ -100,7 +100,13 @@ export const useRecording = () => {
         throw new Error('您的浏览器不支持录音功能');
       }
 
-      // 请求麦克风权限
+      // ⚡ 立即設定錄音狀態，讓 UI 馬上反應
+      // 如果麥克風權限已授權，可以安全地先顯示錄音中
+      if (micPermissionRef.current === 'granted') {
+        setIsRecording(true);
+      }
+
+      // 请求麦克风权限（這是最慢的步驟）
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           sampleRate: 16000,
@@ -110,6 +116,12 @@ export const useRecording = () => {
           autoGainControl: true
         }
       });
+
+      // 如果之前沒有權限，現在有了，更新狀態
+      if (micPermissionRef.current !== 'granted') {
+        micPermissionRef.current = 'granted';
+        setIsRecording(true);
+      }
 
       streamRef.current = stream;
       audioChunksRef.current = [];
@@ -164,7 +176,6 @@ export const useRecording = () => {
 
       // 开始录音
       mediaRecorder.start(1000); // 每秒收集一次数据
-      setIsRecording(true);
 
     } catch (err) {
       setError(`无法开始录音: ${err.message}`);
@@ -326,23 +337,27 @@ export const useRecording = () => {
   // 转换音频格式为WAV（使用預先創建的 AudioContext 以減少延遲）
   const convertToWav = useCallback(async (audioBlob) => {
     return new Promise((resolve, reject) => {
+      // 檢查音頻數據是否有效
+      if (!audioBlob || audioBlob.size === 0) {
+        reject(new Error('錄音數據為空，請重新錄音'));
+        return;
+      }
+
+      // 如果錄音太短（小於 1KB），可能是無效錄音
+      if (audioBlob.size < 1000) {
+        reject(new Error('錄音時間太短，請說話後再停止錄音'));
+        return;
+      }
+
       const reader = new FileReader();
 
       reader.onload = async () => {
         try {
           const arrayBuffer = reader.result;
 
-          // 優先使用預先創建的 AudioContext，減少創建開銷
-          let audioContext = recordingAudioContextRef.current;
-          let shouldCloseContext = false;
-
-          if (!audioContext || audioContext.state === 'closed') {
-            // 如果沒有預熱的 context，才創建新的
-            audioContext = new (window.AudioContext || window.webkitAudioContext)({
-              sampleRate: 16000
-            });
-            shouldCloseContext = true;
-          }
+          // 創建新的 AudioContext（不使用預熱的，避免 sampleRate 衝突）
+          // 使用預設 sampleRate 讓瀏覽器自動處理
+          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
           // 確保 AudioContext 是活躍的
           if (audioContext.state === 'suspended') {
@@ -350,17 +365,25 @@ export const useRecording = () => {
           }
 
           // 解码音频数据（需要複製 arrayBuffer，因為 decodeAudioData 會消耗它）
-          const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
-
-          // 转换为WAV格式
-          const wavBuffer = audioBufferToWav(audioBuffer);
-          const wavBlob = new Blob([wavBuffer], { type: 'audio/wav' });
-
-          // 只關閉臨時創建的 context
-          if (shouldCloseContext) {
+          let audioBuffer;
+          try {
+            audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+          } catch (decodeErr) {
+            // 如果解碼失敗，嘗試用不同的方式
+            console.error('音頻解碼失敗，嘗試備用方案:', decodeErr);
             audioContext.close();
+
+            // 備用方案：直接發送原始 webm 給後端處理
+            // FunASR 後端可能能處理 webm 格式
+            resolve(audioBlob);
+            return;
           }
 
+          // 转换为WAV格式（目標 16kHz 單聲道）
+          const wavBuffer = audioBufferToWav(audioBuffer, 16000);
+          const wavBlob = new Blob([wavBuffer], { type: 'audio/wav' });
+
+          audioContext.close();
           resolve(wavBlob);
         } catch (err) {
           reject(new Error(`音频格式转换失败: ${err.message}`));
@@ -375,15 +398,33 @@ export const useRecording = () => {
     });
   }, []);
 
-  // AudioBuffer转WAV格式
-  const audioBufferToWav = (audioBuffer) => {
-    const length = audioBuffer.length;
-    const sampleRate = audioBuffer.sampleRate;
-    const numberOfChannels = audioBuffer.numberOfChannels;
+  // AudioBuffer转WAV格式（支持重採樣到目標採樣率）
+  const audioBufferToWav = (audioBuffer, targetSampleRate = 16000) => {
+    const sourceSampleRate = audioBuffer.sampleRate;
+    const sourceLength = audioBuffer.length;
+
+    // 計算重採樣後的長度
+    const resampleRatio = targetSampleRate / sourceSampleRate;
+    const targetLength = Math.round(sourceLength * resampleRatio);
+
+    // 只使用第一個聲道（單聲道）
+    const sourceData = audioBuffer.getChannelData(0);
+
+    // 線性插值重採樣
+    const resampledData = new Float32Array(targetLength);
+    for (let i = 0; i < targetLength; i++) {
+      const sourceIndex = i / resampleRatio;
+      const index0 = Math.floor(sourceIndex);
+      const index1 = Math.min(index0 + 1, sourceLength - 1);
+      const fraction = sourceIndex - index0;
+      resampledData[i] = sourceData[index0] * (1 - fraction) + sourceData[index1] * fraction;
+    }
+
     const bytesPerSample = 2;
+    const numberOfChannels = 1; // 強制單聲道
     const blockAlign = numberOfChannels * bytesPerSample;
-    const byteRate = sampleRate * blockAlign;
-    const dataSize = length * blockAlign;
+    const byteRate = targetSampleRate * blockAlign;
+    const dataSize = targetLength * blockAlign;
     const bufferSize = 44 + dataSize;
 
     const buffer = new ArrayBuffer(bufferSize);
@@ -403,21 +444,19 @@ export const useRecording = () => {
     view.setUint32(16, 16, true);
     view.setUint16(20, 1, true);
     view.setUint16(22, numberOfChannels, true);
-    view.setUint32(24, sampleRate, true);
+    view.setUint32(24, targetSampleRate, true);
     view.setUint32(28, byteRate, true);
     view.setUint16(32, blockAlign, true);
     view.setUint16(34, bytesPerSample * 8, true);
     writeString(36, 'data');
     view.setUint32(40, dataSize, true);
 
-    // 音频数据
+    // 音频数据（使用重採樣後的數據）
     let offset = 44;
-    for (let i = 0; i < length; i++) {
-      for (let channel = 0; channel < numberOfChannels; channel++) {
-        const sample = Math.max(-1, Math.min(1, audioBuffer.getChannelData(channel)[i]));
-        view.setInt16(offset, sample * 0x7FFF, true);
-        offset += 2;
-      }
+    for (let i = 0; i < targetLength; i++) {
+      const sample = Math.max(-1, Math.min(1, resampledData[i]));
+      view.setInt16(offset, sample * 0x7FFF, true);
+      offset += 2;
     }
 
     return buffer;
