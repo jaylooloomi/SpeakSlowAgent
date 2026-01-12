@@ -1176,6 +1176,158 @@ class SherpaManager {
       return { success: false, error: error.message };
     }
   }
+
+  // =====================================================
+  // 熱詞功能 API
+  // =====================================================
+
+  /**
+   * 取得熱詞設定
+   * @returns {Promise<{success: boolean, enabled: boolean, score: number, words: string[]}>}
+   */
+  async getHotwords() {
+    if (!this.serverReady) {
+      if (this.initializationPromise) {
+        await this.initializationPromise;
+      }
+      if (!this.serverReady) {
+        return { success: false, error: "Sherpa 服務器未就緒" };
+      }
+    }
+
+    try {
+      const result = await this._sendServerCommand({ action: "get_hotwords" });
+      this.logger.info && this.logger.info("取得熱詞設定:", result);
+      return result;
+    } catch (error) {
+      this.logger.error && this.logger.error("取得熱詞設定失敗:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * 設定熱詞
+   * @param {Object} config - 熱詞設定
+   * @param {boolean} config.enabled - 是否啟用熱詞
+   * @param {number} config.score - 熱詞提升分數 (1.0-3.0)
+   * @param {string[]} config.words - 熱詞列表
+   * @returns {Promise<{success: boolean}>}
+   */
+  async setHotwords(config) {
+    if (!this.serverReady) {
+      if (this.initializationPromise) {
+        await this.initializationPromise;
+      }
+      if (!this.serverReady) {
+        return { success: false, error: "Sherpa 服務器未就緒" };
+      }
+    }
+
+    try {
+      const result = await this._sendServerCommand({
+        action: "set_hotwords",
+        enabled: config.enabled,
+        score: config.score,
+        words: config.words,
+      });
+      this.logger.info && this.logger.info("設定熱詞結果:", result);
+      return result;
+    } catch (error) {
+      this.logger.error && this.logger.error("設定熱詞失敗:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * 新增單一熱詞
+   * @param {string} word - 要新增的熱詞
+   * @returns {Promise<{success: boolean, words: string[]}>}
+   */
+  async addHotword(word) {
+    if (!word || typeof word !== "string" || word.trim() === "") {
+      return { success: false, error: "熱詞不能為空" };
+    }
+
+    try {
+      // 先取得現有熱詞設定
+      const currentConfig = await this.getHotwords();
+      if (!currentConfig.success) {
+        return currentConfig;
+      }
+
+      const words = currentConfig.words || [];
+      const trimmedWord = word.trim();
+
+      // 檢查是否已存在
+      if (words.includes(trimmedWord)) {
+        return { success: false, error: "熱詞已存在" };
+      }
+
+      // 加入新熱詞
+      words.push(trimmedWord);
+
+      // 設定新的熱詞列表
+      const result = await this.setHotwords({
+        enabled: currentConfig.enabled !== false,
+        score: currentConfig.score || 1.5,
+        words: words,
+      });
+
+      if (result.success) {
+        return { success: true, words: words };
+      }
+      return result;
+    } catch (error) {
+      this.logger.error && this.logger.error("新增熱詞失敗:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * 刪除單一熱詞
+   * @param {string} word - 要刪除的熱詞
+   * @returns {Promise<{success: boolean, words: string[]}>}
+   */
+  async removeHotword(word) {
+    if (!word || typeof word !== "string") {
+      return { success: false, error: "熱詞不能為空" };
+    }
+
+    try {
+      // 先取得現有熱詞設定
+      const currentConfig = await this.getHotwords();
+      if (!currentConfig.success) {
+        return currentConfig;
+      }
+
+      const words = currentConfig.words || [];
+      const trimmedWord = word.trim();
+
+      // 檢查是否存在
+      const index = words.indexOf(trimmedWord);
+      if (index === -1) {
+        return { success: false, error: "熱詞不存在" };
+      }
+
+      // 移除熱詞
+      words.splice(index, 1);
+
+      // 設定新的熱詞列表
+      const result = await this.setHotwords({
+        enabled: currentConfig.enabled !== false,
+        score: currentConfig.score || 1.5,
+        words: words,
+      });
+
+      if (result.success) {
+        return { success: true, words: words };
+      }
+      return result;
+    } catch (error) {
+      this.logger.error && this.logger.error("刪除熱詞失敗:", error);
+      return { success: false, error: error.message };
+    }
+  }
 }
 
 module.exports = SherpaManager;

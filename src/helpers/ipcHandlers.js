@@ -233,6 +233,44 @@ class IPCHandlers {
       return null;
     });
 
+    // ===== 熱詞功能 =====
+    ipcMain.handle("get-hotwords", async () => {
+      try {
+        return await this.sherpaManager.getHotwords();
+      } catch (error) {
+        this.logger.error("取得熱詞設定失敗:", error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle("set-hotwords", async (event, config) => {
+      try {
+        // config: { enabled: boolean, score: number, words: string[] }
+        return await this.sherpaManager.setHotwords(config);
+      } catch (error) {
+        this.logger.error("設定熱詞失敗:", error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle("add-hotword", async (event, word) => {
+      try {
+        return await this.sherpaManager.addHotword(word);
+      } catch (error) {
+        this.logger.error("新增熱詞失敗:", error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle("remove-hotword", async (event, word) => {
+      try {
+        return await this.sherpaManager.removeHotword(word);
+      } catch (error) {
+        this.logger.error("刪除熱詞失敗:", error);
+        return { success: false, error: error.message };
+      }
+    });
+
     // 音訊檔案操作
     ipcMain.handle("get-audio-file", async (event, audioPath) => {
       try {

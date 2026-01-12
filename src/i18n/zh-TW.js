@@ -65,6 +65,39 @@ export default {
       ai: 'AI智慧文字優化',
       realtime: '即時語音處理',
       privacy: '隱私保護設計'
+    },
+
+    // 熱詞設定
+    hotwords: {
+      title: '熱詞設定',
+      description: '提升特定詞彙的辨識準確度，適用於專有名詞、人名、公司名稱等',
+      enable: '啟用熱詞',
+      enableDesc: '開啟後熱詞會在辨識時生效',
+      enabled: '熱詞功能已啟用',
+      disabled: '熱詞功能已停用',
+      list: '熱詞列表',
+      empty: '尚未新增任何熱詞',
+      emptyHint: '在下方輸入框新增常用的專有名詞',
+      placeholder: '輸入新詞彙...',
+      add: '新增',
+      remove: '移除',
+      added: '已新增熱詞',
+      removed: '已移除熱詞',
+      duplicate: '此熱詞已存在',
+      tooShort: '熱詞至少需要 2 個字元',
+      tooLong: '熱詞不應超過 10 個字元',
+      loadFailed: '載入熱詞設定失敗',
+      addFailed: '新增熱詞失敗',
+      removeFailed: '刪除熱詞失敗',
+      score: '熱詞強度',
+      scoreMild: '輕微',
+      scoreLow: '偏低',
+      scoreMedium: '中等',
+      scoreHigh: '偏高',
+      scoreStrong: '強烈',
+      warning: '熱詞過多可能影響辨識速度，建議不超過 50 個',
+      tipTitle: '使用提示',
+      tipContent: '熱詞適合 2-10 個字的專有名詞。強度越高辨識優先度越高，但可能導致誤判。建議從中等強度開始調整。'
     }
   },
 

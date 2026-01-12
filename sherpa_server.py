@@ -261,6 +261,11 @@ class SherpaServer:
         # 串流會話管理
         self.streaming_sessions = {}  # session_id -> stream object
 
+        # 熱詞設定
+        self.hotwords_file = None  # 熱詞檔案路徑
+        self.hotwords_score = 1.5  # 熱詞分數 (1.0-3.0)
+        self.hotwords_enabled = True  # 是否啟用熱詞
+
         # 動態執行緒數：根據 CPU 核心數調整，最多 8 執行緒
         self.num_threads = min(os.cpu_count() or 4, 8)
         logger.info(f"動態執行緒數: {self.num_threads} (CPU 核心: {os.cpu_count()})")
@@ -547,6 +552,7 @@ class SherpaServer:
             decoder_path = os.path.join(self.streaming_model_dir, "decoder-epoch-99-avg-1.onnx")
             joiner_path = os.path.join(self.streaming_model_dir, "joiner-epoch-99-avg-1.onnx")
             tokens_path = os.path.join(self.streaming_model_dir, "tokens.txt")
+            bpe_vocab_path = os.path.join(self.streaming_model_dir, "bpe.vocab")
 
             for path, name in [(encoder_path, "encoder"), (decoder_path, "decoder"),
                                (joiner_path, "joiner"), (tokens_path, "tokens")]:
@@ -559,29 +565,70 @@ class SherpaServer:
 
             import sherpa_onnx
 
+            # 準備熱詞參數
+            hotwords_file = None
+            hotwords_score = self.hotwords_score
+            decoding_method = "greedy_search"
+
+            # 檢查是否啟用熱詞功能
+            if self.hotwords_enabled:
+                hotwords_path = self._get_hotwords_path()
+                words = self._load_hotwords_file()
+
+                if words and len(words) > 0:
+                    # 有熱詞時使用 modified_beam_search
+                    hotwords_file = hotwords_path
+                    decoding_method = "modified_beam_search"
+                    logger.info(f"啟用熱詞功能: {len(words)} 個詞, score={hotwords_score}, decoding={decoding_method}")
+                else:
+                    logger.info("熱詞功能已啟用但無熱詞，使用 greedy_search")
+            else:
+                logger.info("熱詞功能已停用，使用 greedy_search")
+
             # 創建串流辨識器 (Transducer)
-            self.streaming_recognizer = sherpa_onnx.OnlineRecognizer.from_transducer(
-                encoder=encoder_path,
-                decoder=decoder_path,
-                joiner=joiner_path,
-                tokens=tokens_path,
-                num_threads=self.num_threads,
-                sample_rate=16000,
-                feature_dim=80,
-                decoding_method="greedy_search",
-                enable_endpoint_detection=True,
-                rule1_min_trailing_silence=2.4,
-                rule2_min_trailing_silence=1.2,
-                rule3_min_utterance_length=20,
-            )
+            # 根據是否有熱詞決定參數
+            recognizer_params = {
+                "encoder": encoder_path,
+                "decoder": decoder_path,
+                "joiner": joiner_path,
+                "tokens": tokens_path,
+                "num_threads": self.num_threads,
+                "sample_rate": 16000,
+                "feature_dim": 80,
+                "decoding_method": decoding_method,
+                "enable_endpoint_detection": True,
+                "rule1_min_trailing_silence": 2.4,
+                "rule2_min_trailing_silence": 1.2,
+                "rule3_min_utterance_length": 20,
+            }
+
+            # 如果有熱詞，加入熱詞相關參數
+            if hotwords_file and os.path.exists(hotwords_file):
+                recognizer_params["hotwords_file"] = hotwords_file
+                recognizer_params["hotwords_score"] = hotwords_score
+                # 檢查 bpe.vocab 是否存在
+                if os.path.exists(bpe_vocab_path):
+                    recognizer_params["bpe_vocab"] = bpe_vocab_path
+                    logger.info(f"使用 BPE 詞彙表: {bpe_vocab_path}")
+                else:
+                    logger.warning(f"BPE 詞彙表不存在: {bpe_vocab_path}，熱詞功能可能受限")
+
+            self.streaming_recognizer = sherpa_onnx.OnlineRecognizer.from_transducer(**recognizer_params)
+
+            # 記錄熱詞檔案路徑
+            self.hotwords_file = hotwords_file
 
             load_time = time.time() - start_time
             self.streaming_initialized = True
-            logger.info(f"串流辨識器初始化完成，耗時: {load_time:.2f} 秒")
+
+            hotwords_status = f"熱詞: {'啟用' if hotwords_file else '停用'}"
+            logger.info(f"串流辨識器初始化完成，耗時: {load_time:.2f} 秒, {hotwords_status}")
 
             return {
                 "success": True,
                 "message": f"串流辨識器初始化成功，耗時: {load_time:.2f} 秒",
+                "hotwords_enabled": hotwords_file is not None,
+                "decoding_method": decoding_method,
             }
 
         except Exception as e:
@@ -895,6 +942,127 @@ class SherpaServer:
             "vad_enabled": self.vad is not None,
         }
 
+    # ========== 熱詞管理方法 ==========
+
+    def _get_hotwords_path(self):
+        """取得熱詞檔案路徑"""
+        user_data_dir = os.environ.get("ELECTRON_USER_DATA", ".")
+        return os.path.join(user_data_dir, "hotwords.txt")
+
+    def _load_hotwords_file(self):
+        """從檔案載入熱詞"""
+        hotwords_path = self._get_hotwords_path()
+        words = []
+
+        if os.path.exists(hotwords_path):
+            try:
+                with open(hotwords_path, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        # 跳過空行和註解
+                        if line and not line.startswith('#'):
+                            words.append(line)
+                logger.info(f"載入 {len(words)} 個熱詞從 {hotwords_path}")
+            except Exception as e:
+                logger.error(f"載入熱詞檔案失敗: {e}")
+        else:
+            logger.info(f"熱詞檔案不存在: {hotwords_path}，將使用空列表")
+
+        return words
+
+    def _save_hotwords_file(self, words):
+        """儲存熱詞到檔案"""
+        hotwords_path = self._get_hotwords_path()
+
+        try:
+            # 確保目錄存在
+            os.makedirs(os.path.dirname(hotwords_path) or '.', exist_ok=True)
+
+            with open(hotwords_path, 'w', encoding='utf-8') as f:
+                f.write("# 熱詞列表 - 每行一個詞彙\n")
+                for word in words:
+                    if word.strip():
+                        f.write(f"{word.strip()}\n")
+
+            logger.info(f"儲存 {len(words)} 個熱詞到 {hotwords_path}")
+            return True
+        except Exception as e:
+            logger.error(f"儲存熱詞檔案失敗: {e}")
+            return False
+
+    def get_hotwords(self):
+        """取得熱詞設定"""
+        words = self._load_hotwords_file()
+        return {
+            "success": True,
+            "enabled": self.hotwords_enabled,
+            "score": self.hotwords_score,
+            "words": words,
+        }
+
+    def set_hotwords(self, config):
+        """設定熱詞 (enabled, score, words)"""
+        try:
+            changed = False
+
+            # 更新 enabled
+            if "enabled" in config:
+                new_enabled = bool(config["enabled"])
+                if self.hotwords_enabled != new_enabled:
+                    self.hotwords_enabled = new_enabled
+                    changed = True
+                    logger.info(f"熱詞功能: {'啟用' if new_enabled else '停用'}")
+
+            # 更新 score
+            if "score" in config:
+                new_score = float(config["score"])
+                # 限制分數範圍 1.0 - 3.0
+                new_score = max(1.0, min(3.0, new_score))
+                if self.hotwords_score != new_score:
+                    self.hotwords_score = new_score
+                    changed = True
+                    logger.info(f"熱詞分數: {new_score}")
+
+            # 更新 words
+            if "words" in config:
+                words = config["words"]
+                if isinstance(words, list):
+                    self._save_hotwords_file(words)
+                    changed = True
+                    logger.info(f"更新熱詞列表: {len(words)} 個詞")
+
+            # 如果有變更且串流辨識器已初始化，需要重新初始化
+            if changed and self.streaming_initialized:
+                logger.info("熱詞設定變更，重新初始化串流辨識器...")
+                self.streaming_initialized = False
+                self.streaming_recognizer = None
+                # 清除所有進行中的串流會話
+                if self.streaming_sessions:
+                    logger.warning(f"清除 {len(self.streaming_sessions)} 個進行中的串流會話")
+                    self.streaming_sessions.clear()
+                # 重新初始化
+                init_result = self.initialize_streaming()
+                if not init_result["success"]:
+                    return {
+                        "success": False,
+                        "error": f"重新初始化串流辨識器失敗: {init_result.get('error', '未知錯誤')}",
+                    }
+
+            return {
+                "success": True,
+                "enabled": self.hotwords_enabled,
+                "score": self.hotwords_score,
+                "words": self._load_hotwords_file(),
+            }
+
+        except Exception as e:
+            error_msg = f"設定熱詞失敗: {str(e)}"
+            logger.error(error_msg)
+            logger.error(traceback.format_exc())
+            return {"success": False, "error": error_msg}
+
+    # ================================
+
     def run(self):
         """運行服務器主循環"""
         logger.info("Sherpa-ONNX 服務器啟動")
@@ -948,6 +1116,12 @@ class SherpaServer:
                     result = self.stream_end(session_id)
                 elif action == "init_streaming":
                     result = self.initialize_streaming()
+                # ========== 熱詞命令 ==========
+                elif action == "get_hotwords":
+                    result = self.get_hotwords()
+                elif action == "set_hotwords":
+                    config = command.get("config", {})
+                    result = self.set_hotwords(config)
                 # ================================
                 elif action == "exit":
                     result = {"success": True, "message": "服務器退出"}

@@ -65,6 +65,39 @@ export default {
       ai: 'AI智能文本优化',
       realtime: '实时语音处理',
       privacy: '隐私保护设计'
+    },
+
+    // 热词设置
+    hotwords: {
+      title: '热词设置',
+      description: '提升特定词汇的识别准确度，适用于专有名词、人名、公司名称等',
+      enable: '启用热词',
+      enableDesc: '开启后热词会在识别时生效',
+      enabled: '热词功能已启用',
+      disabled: '热词功能已停用',
+      list: '热词列表',
+      empty: '尚未添加任何热词',
+      emptyHint: '在下方输入框添加常用的专有名词',
+      placeholder: '输入新词汇...',
+      add: '添加',
+      remove: '移除',
+      added: '已添加热词',
+      removed: '已移除热词',
+      duplicate: '此热词已存在',
+      tooShort: '热词至少需要 2 个字符',
+      tooLong: '热词不应超过 10 个字符',
+      loadFailed: '加载热词设置失败',
+      addFailed: '添加热词失败',
+      removeFailed: '删除热词失败',
+      score: '热词强度',
+      scoreMild: '轻微',
+      scoreLow: '偏低',
+      scoreMedium: '中等',
+      scoreHigh: '偏高',
+      scoreStrong: '强烈',
+      warning: '热词过多可能影响识别速度，建议不超过 50 个',
+      tipTitle: '使用提示',
+      tipContent: '热词适合 2-10 个字的专有名词。强度越高识别优先度越高，但可能导致误判。建议从中等强度开始调整。'
     }
   },
 
