@@ -7,12 +7,17 @@ class TrayManager {
     this.mainWindow = null;
     this.controlPanelWindow = null;
     this.createControlPanelCallback = null;
+    this.windowManager = null;
     this.logger = logger;
   }
 
   setWindows(mainWindow, controlPanelWindow) {
     this.mainWindow = mainWindow;
     this.controlPanelWindow = controlPanelWindow;
+  }
+
+  setWindowManager(windowManager) {
+    this.windowManager = windowManager;
   }
 
   setCreateControlPanelCallback(callback) {
@@ -81,7 +86,7 @@ class TrayManager {
 
     const contextMenu = Menu.buildFromTemplate([
       {
-        label: "显示主窗口",
+        label: "顯示主視窗",
         click: () => {
           if (this.mainWindow) {
             this.mainWindow.show();
@@ -104,9 +109,17 @@ class TrayManager {
           }
         }
       },
+      {
+        label: "設定",
+        click: () => {
+          if (this.windowManager) {
+            this.windowManager.showSettingsWindow();
+          }
+        }
+      },
       { type: "separator" },
       {
-        label: "关于",
+        label: "關於",
         click: () => {
           // TODO: 显示关于对话框
         }
@@ -115,6 +128,10 @@ class TrayManager {
       {
         label: "退出",
         click: () => {
+          // 設置退出標記，讓 windowManager 不攔截關閉事件
+          if (this.windowManager) {
+            this.windowManager.isQuitting = true;
+          }
           require("electron").app.quit();
         }
       }

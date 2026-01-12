@@ -114,16 +114,18 @@ setupProductionPath();
 
 // 初始化管理器
 const environmentManager = new EnvironmentManager();
-const windowManager = new WindowManager();
 const databaseManager = new DatabaseManager();
 const clipboardManager = new ClipboardManager(logger); // 传递logger实例
 const sherpaManager = new SherpaManager(logger); // 传递logger实例
-const trayManager = new TrayManager();
 const hotkeyManager = new HotkeyManager();
 
 // 初始化数据库
 const dataDirectory = environmentManager.ensureDataDirectory();
 databaseManager.initialize(dataDirectory);
+
+// 初始化 windowManager，傳入 databaseManager 以支援設定讀取
+const windowManager = new WindowManager(databaseManager);
+const trayManager = new TrayManager();
 
 // IPC处理器将在 app ready 后初始化
 let ipcHandlers = null;
@@ -204,6 +206,7 @@ async function startApp() {
     windowManager.mainWindow,
     windowManager.controlPanelWindow
   );
+  trayManager.setWindowManager(windowManager);
   trayManager.setCreateControlPanelCallback(() =>
     windowManager.createControlPanelWindow()
   );

@@ -452,6 +452,36 @@ class IPCHandlers {
       require("electron").app.quit();
     });
 
+    // =====================================================
+    // 視窗控制設定 API
+    // =====================================================
+
+    // 設置主視窗置頂狀態
+    ipcMain.handle("set-always-on-top", async (event, value) => {
+      try {
+        this.windowManager.setMainWindowAlwaysOnTop(value);
+        // 同時保存到設定
+        await this.databaseManager.setSetting('window_always_on_top', value);
+        return { success: true };
+      } catch (error) {
+        this.logger.error("設置置頂狀態失敗:", error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    // 獲取主視窗置頂狀態
+    ipcMain.handle("get-always-on-top", () => {
+      try {
+        if (this.windowManager.mainWindow && !this.windowManager.mainWindow.isDestroyed()) {
+          return { success: true, value: this.windowManager.mainWindow.isAlwaysOnTop() };
+        }
+        return { success: false, error: "主視窗不存在" };
+      } catch (error) {
+        this.logger.error("獲取置頂狀態失敗:", error);
+        return { success: false, error: error.message };
+      }
+    });
+
     // 热键管理 - 添加发送者跟踪机制
     this.hotkeyRegisteredSenders = new Set(); // 跟踪已注册热键的发送者
     

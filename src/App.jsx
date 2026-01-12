@@ -10,7 +10,7 @@ import { useTextProcessing } from "./hooks/useTextProcessing";
 import { useModelStatus } from "./hooks/useModelStatus";
 import { usePermissions } from "./hooks/usePermissions";
 import { useTranslation } from "./i18n";
-import { Mic, MicOff, Settings, History, Copy, Download, X } from "lucide-react";
+import { Mic, MicOff, Settings, History, Copy, Download, X, Pin, Minus } from "lucide-react";
 import SettingsPanel from "./components/SettingsPanel";
 import HistorySidebar from "./components/HistorySidebar";
 import { ModelDownloadProgress } from "./components/ui/model-status-indicator";
@@ -250,6 +250,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showHistorySidebar, setShowHistorySidebar] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(true); // 視窗置頂狀態
 
   // 錄音完成後動作設定
   const [pasteAfterTranscription, setPasteAfterTranscription] = useState(true);
@@ -274,6 +275,10 @@ export default function App() {
 
         const autoEnter = await window.electronAPI.getSetting('auto_enter_after_paste', false);
         setAutoEnterAfterPaste(autoEnter === true);
+
+        // 載入置頂狀態
+        const alwaysOnTop = await window.electronAPI.getSetting('window_always_on_top', true);
+        setIsAlwaysOnTop(alwaysOnTop !== false);
       }
     };
     loadSettings();
@@ -287,6 +292,8 @@ export default function App() {
           setPasteAfterTranscription(data.value !== false);
         } else if (data.key === 'auto_enter_after_paste') {
           setAutoEnterAfterPaste(data.value === true);
+        } else if (data.key === 'window_always_on_top') {
+          setIsAlwaysOnTop(data.value !== false);
         }
       });
       return () => {
@@ -659,6 +666,23 @@ export default function App() {
     }
   };
 
+  // 切換視窗置頂狀態
+  const handleToggleAlwaysOnTop = async () => {
+    if (window.electronAPI) {
+      const newValue = !isAlwaysOnTop;
+      setIsAlwaysOnTop(newValue);
+      await window.electronAPI.setAlwaysOnTop(newValue);
+      toast.success(newValue ? '視窗置頂已開啟' : '視窗置頂已關閉');
+    }
+  };
+
+  // 縮小視窗
+  const handleMinimize = () => {
+    if (window.electronAPI) {
+      window.electronAPI.minimizeWindow();
+    }
+  };
+
   // 处理打开设置
   const handleOpenSettings = () => {
     if (window.electronAPI) {
@@ -892,6 +916,30 @@ export default function App() {
                 className="p-2.5 hover:bg-white/70 dark:hover:bg-gray-700/70 rounded-xl transition-colors"
               >
                 <Settings className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              </button>
+            </Tooltip>
+            <Tooltip content={isAlwaysOnTop ? '取消置頂' : '視窗置頂'} position="bottom">
+              <button
+                onClick={handleToggleAlwaysOnTop}
+                className={`p-2.5 rounded-xl transition-colors ${
+                  isAlwaysOnTop
+                    ? 'bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-800/50'
+                    : 'hover:bg-white/70 dark:hover:bg-gray-700/70'
+                }`}
+              >
+                <Pin className={`w-5 h-5 ${
+                  isAlwaysOnTop
+                    ? 'text-blue-600 dark:text-blue-400'
+                    : 'text-gray-600 dark:text-gray-400'
+                }`} />
+              </button>
+            </Tooltip>
+            <Tooltip content="縮小" position="bottom">
+              <button
+                onClick={handleMinimize}
+                className="p-2.5 hover:bg-white/70 dark:hover:bg-gray-700/70 rounded-xl transition-colors"
+              >
+                <Minus className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               </button>
             </Tooltip>
             <Tooltip content={t('app.close') || '關閉'} position="bottom">

@@ -8,6 +8,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   minimizeWindow: () => ipcRenderer.invoke("minimize-window"),
   closeWindow: () => ipcRenderer.invoke("close-window"),
 
+  // 視窗控制設定
+  setAlwaysOnTop: (value) => ipcRenderer.invoke("set-always-on-top", value),
+  getAlwaysOnTop: () => ipcRenderer.invoke("get-always-on-top"),
+
   // 录音相关
   startRecording: () => ipcRenderer.invoke("start-recording"),
   stopRecording: () => ipcRenderer.invoke("stop-recording"),

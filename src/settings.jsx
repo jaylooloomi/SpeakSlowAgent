@@ -23,7 +23,11 @@ const SettingsPage = () => {
     convert_transcription: true,
     // 錄音完成後動作設定
     paste_after_transcription: true,  // 自動貼上辨識結果
-    auto_enter_after_paste: false     // 貼上後自動送出（完全信任模式）
+    auto_enter_after_paste: false,    // 貼上後自動送出（完全信任模式）
+    // 視窗控制設定
+    window_always_on_top: true,       // 視窗置頂
+    minimize_to_tray: true,           // 縮小到系統托盤
+    close_to_tray: true               // 關閉到系統托盤
   });
   
   const [customModel, setCustomModel] = useState(false);
@@ -69,7 +73,11 @@ const SettingsPage = () => {
           convert_transcription: allSettings.convert_transcription !== false, // 默认转换
           // 錄音完成後動作設定
           paste_after_transcription: allSettings.paste_after_transcription !== false, // 默認自動貼上
-          auto_enter_after_paste: allSettings.auto_enter_after_paste === true // 默認不自動送出
+          auto_enter_after_paste: allSettings.auto_enter_after_paste === true, // 默認不自動送出
+          // 視窗控制設定
+          window_always_on_top: allSettings.window_always_on_top !== false, // 默認置頂
+          minimize_to_tray: allSettings.minimize_to_tray !== false, // 默認縮小到托盤
+          close_to_tray: allSettings.close_to_tray !== false // 默認關閉到托盤
         };
         setSettings(prev => ({ ...prev, ...loadedSettings }));
         
@@ -152,6 +160,14 @@ const SettingsPage = () => {
                 toast.error('串流模型預載失敗，首次錄音可能會較慢');
               });
           }
+        } else if (key === 'window_always_on_top') {
+          // 視窗置頂需要即時應用
+          await window.electronAPI.setAlwaysOnTop(value);
+          toast.success(value ? '視窗置頂已開啟' : '視窗置頂已關閉');
+        } else if (key === 'minimize_to_tray') {
+          toast.success(value ? '縮小到托盤已開啟' : '縮小到托盤已關閉');
+        } else if (key === 'close_to_tray') {
+          toast.success(value ? '關閉到托盤已開啟' : '關閉到托盤已關閉');
         }
         // 設定變更會透過 IPC 自動廣播到所有視窗
       }
@@ -434,6 +450,106 @@ const SettingsPage = () => {
                       aria-hidden="true"
                       className={`${
                         settings.enable_streaming_mode ? 'translate-x-4' : 'translate-x-0'
+                      } inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                    />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 視窗控制設定 */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 mb-6">
+            <div className="p-6">
+              <div className="mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 chinese-title">
+                  🪟 視窗控制
+                </h2>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  設定視窗置頂與系統托盤行為
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                {/* 視窗置頂開關 */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                      視窗置頂
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      讓應用程式視窗保持在其他視窗之上
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={settings.window_always_on_top}
+                    onClick={() => handleToggleChange('window_always_on_top', !settings.window_always_on_top)}
+                    className={`${
+                      settings.window_always_on_top ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                    } relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`${
+                        settings.window_always_on_top ? 'translate-x-4' : 'translate-x-0'
+                      } inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                    />
+                  </button>
+                </div>
+
+                {/* 縮小到托盤開關 */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                      縮小到系統托盤
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      縮小視窗時隱藏到系統托盤
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={settings.minimize_to_tray}
+                    onClick={() => handleToggleChange('minimize_to_tray', !settings.minimize_to_tray)}
+                    className={`${
+                      settings.minimize_to_tray ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                    } relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`${
+                        settings.minimize_to_tray ? 'translate-x-4' : 'translate-x-0'
+                      } inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                    />
+                  </button>
+                </div>
+
+                {/* 關閉到托盤開關 */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                      關閉到系統托盤
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      關閉視窗時隱藏到托盤而非退出應用程式
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={settings.close_to_tray}
+                    onClick={() => handleToggleChange('close_to_tray', !settings.close_to_tray)}
+                    className={`${
+                      settings.close_to_tray ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                    } relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`${
+                        settings.close_to_tray ? 'translate-x-4' : 'translate-x-0'
                       } inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
                     />
                   </button>
