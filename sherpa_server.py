@@ -572,14 +572,24 @@ class SherpaServer:
 
             # 檢查是否啟用熱詞功能
             if self.hotwords_enabled:
-                hotwords_path = self._get_hotwords_path()
-                words = self._load_hotwords_file()
+                # 取得所有熱詞（內建 + 使用者）
+                all_words = self._get_all_hotwords()
 
-                if words and len(words) > 0:
-                    # 有熱詞時使用 modified_beam_search
-                    hotwords_file = hotwords_path
-                    decoding_method = "modified_beam_search"
-                    logger.info(f"啟用熱詞功能: {len(words)} 個詞, score={hotwords_score}, decoding={decoding_method}")
+                if all_words and len(all_words) > 0:
+                    # 寫入臨時熱詞檔案供辨識器使用
+                    hotwords_path = self._get_hotwords_path() + ".active"
+                    try:
+                        with open(hotwords_path, 'w', encoding='utf-8') as f:
+                            for word in all_words:
+                                f.write(f"{word}\n")
+                        hotwords_file = hotwords_path
+                        decoding_method = "modified_beam_search"
+                        user_count = len(self._load_hotwords_file())
+                        builtin_count = len(self._BUILTIN_HOTWORDS)
+                        logger.info(f"啟用熱詞功能: {len(all_words)} 個詞 (內建:{builtin_count}, 使用者:{user_count}), score={hotwords_score}, decoding={decoding_method}")
+                    except Exception as e:
+                        logger.error(f"寫入熱詞檔案失敗: {e}")
+                        logger.info("回退到 greedy_search")
                 else:
                     logger.info("熱詞功能已啟用但無熱詞，使用 greedy_search")
             else:
@@ -944,6 +954,21 @@ class SherpaServer:
 
     # ========== 熱詞管理方法 ==========
 
+    # 內建熱詞（不顯示給使用者，但會用於辨識）
+    _BUILTIN_HOTWORDS = [
+        "聲聲慢",
+        "語音轉錄",
+        "Typeless",
+        "Whisper",
+        "Wispr",
+        "Flow",
+        "VIBE",
+        "Coding",
+        "VoiceInk",
+        "MacWhisper",
+        "SuperWhisper",
+    ]
+
     def _get_hotwords_path(self):
         """取得熱詞檔案路徑"""
         user_data_dir = os.environ.get("ELECTRON_USER_DATA", ".")
@@ -969,6 +994,16 @@ class SherpaServer:
             logger.info(f"熱詞檔案不存在: {hotwords_path}，將使用空列表")
 
         return words
+
+    def _get_all_hotwords(self):
+        """取得所有熱詞（包含內建 + 使用者自訂）"""
+        user_words = self._load_hotwords_file()
+        # 合併內建熱詞，避免重複
+        all_words = list(self._BUILTIN_HOTWORDS)
+        for word in user_words:
+            if word not in all_words:
+                all_words.append(word)
+        return all_words
 
     def _save_hotwords_file(self, words):
         """儲存熱詞到檔案"""
