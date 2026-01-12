@@ -813,22 +813,26 @@ class SherpaServer:
             while self.streaming_recognizer.is_ready(stream):
                 self.streaming_recognizer.decode_stream(stream)
 
-            # 獲取最終結果
+            # 獲取最終結果（endpoint reset 後的剩餘文字）
             final_result = self.streaming_recognizer.get_result(stream)
-            final_text = final_result.strip() if final_result else ""
+            remaining_text = final_result.strip() if final_result else ""
 
-            # 保存原始文字（無標點）
-            raw_text = (session["text_buffer"] + final_text).strip()
-
-            # 對最後一段文字加標點（如果有的話）
-            # 注意：text_buffer 在 stream_feed 的 endpoint 檢測時已經加過標點了
-            if final_text:
-                final_text_with_punc = self._add_punctuation(final_text)
+            # text_buffer 已經包含所有 endpoint 時加過標點的文字
+            # 只需要處理 endpoint 後的「剩餘文字」（通常很短或為空）
+            if remaining_text:
+                # 檢查剩餘文字是否已經在 buffer 中（避免重複）
+                if remaining_text not in session["text_buffer"]:
+                    remaining_with_punc = self._add_punctuation(remaining_text)
+                    text_with_punc = (session["text_buffer"] + remaining_with_punc).strip()
+                else:
+                    # 剩餘文字已經在 buffer 中，直接使用 buffer
+                    text_with_punc = session["text_buffer"].strip()
             else:
-                final_text_with_punc = ""
+                # 沒有剩餘文字，直接使用 buffer
+                text_with_punc = session["text_buffer"].strip()
 
-            # 合併 buffer 和最終結果
-            text_with_punc = (session["text_buffer"] + final_text_with_punc).strip()
+            # 保存原始文字（用於 debug）
+            raw_text = text_with_punc
 
             # 計算時長
             duration = session["sample_count"] / 16000.0
