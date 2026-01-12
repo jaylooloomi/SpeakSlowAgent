@@ -228,12 +228,16 @@ def add_punctuation(text):
     for i, word in enumerate(protected_words):
         result = result.replace(f'__PROTECTED_{i}__', word)
 
-    # 清理連續的逗號
-    result = re.sub(r'，+', '，', result)
+    # 清理連續和重複的標點
+    result = re.sub(r'，+', '，', result)  # 連續逗號
+    result = re.sub(r'。+', '。', result)  # 連續句號
+    result = re.sub(r'？+', '？', result)  # 連續問號
+    result = re.sub(r'[。，]+(?=[。？])', '', result)  # 句號/逗號後面跟著句號/問號，移除前面的
+    result = re.sub(r'。，', '，', result)  # 句號後面逗號，保留逗號
+    result = re.sub(r'，。', '。', result)  # 逗號後面句號，保留句號
 
-    # 移除開頭的逗號
-    if result.startswith('，'):
-        result = result[1:]
+    # 移除開頭的標點
+    result = re.sub(r'^[，。？！]+', '', result)
 
     # 加上句末標點
     if result and result[-1] not in '，。？！、；：':
@@ -813,13 +817,18 @@ class SherpaServer:
             final_result = self.streaming_recognizer.get_result(stream)
             final_text = final_result.strip() if final_result else ""
 
+            # 保存原始文字（無標點）
+            raw_text = (session["text_buffer"] + final_text).strip()
+
             # 對最後一段文字加標點（如果有的話）
             # 注意：text_buffer 在 stream_feed 的 endpoint 檢測時已經加過標點了
             if final_text:
-                final_text = self._add_punctuation(final_text)
+                final_text_with_punc = self._add_punctuation(final_text)
+            else:
+                final_text_with_punc = ""
 
             # 合併 buffer 和最終結果
-            text_with_punc = (session["text_buffer"] + final_text).strip()
+            text_with_punc = (session["text_buffer"] + final_text_with_punc).strip()
 
             # 計算時長
             duration = session["sample_count"] / 16000.0
@@ -828,13 +837,13 @@ class SherpaServer:
             # 清理會話
             del self.streaming_sessions[session_id]
 
-            logger.info(f"串流會話結束: {session_id}, 結果: {text_with_punc[:50]}...")
+            logger.info(f"串流會話結束: {session_id}, 結果: {text_with_punc[:50] if text_with_punc else '(空)'}...")
 
             return {
                 "success": True,
                 "session_id": session_id,
                 "final_text": to_traditional(text_with_punc),
-                "raw_text": to_traditional(full_text),
+                "raw_text": to_traditional(raw_text),
                 "duration": round(duration, 2),
                 "process_time": round(elapsed, 2),
             }
