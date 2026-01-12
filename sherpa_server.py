@@ -266,6 +266,12 @@ class SherpaServer:
         self.hotwords_score = 1.5  # 熱詞分數 (1.0-3.0)
         self.hotwords_enabled = True  # 是否啟用熱詞
 
+        # 串流 VAD 設定
+        self.streaming_vad_enabled = True  # 串流模式啟用 VAD
+        self.streaming_vad_threshold = 0.01  # 能量閾值（RMS）
+        self.streaming_vad_skipped = 0  # 跳過的 chunk 數
+        self.streaming_vad_total = 0  # 總 chunk 數
+
         # 動態執行緒數：根據 CPU 核心數調整，最多 8 執行緒
         self.num_threads = min(os.cpu_count() or 4, 8)
         logger.info(f"動態執行緒數: {self.num_threads} (CPU 核心: {os.cpu_count()})")
@@ -677,6 +683,14 @@ class SherpaServer:
             logger.error(error_msg)
             return {"success": False, "error": error_msg}
 
+    def _check_speech_energy(self, samples):
+        """快速檢測音訊是否包含語音（基於能量）"""
+        if len(samples) == 0:
+            return False
+        # 計算 RMS 能量
+        rms = np.sqrt(np.mean(samples ** 2))
+        return rms > self.streaming_vad_threshold
+
     def stream_feed(self, session_id, audio_data, is_final=False):
         """接收音頻數據並返回中間結果"""
         if session_id not in self.streaming_sessions:
@@ -692,7 +706,26 @@ class SherpaServer:
             audio_bytes = base64.b64decode(audio_data)
             samples = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
 
-            # 餵入音頻數據
+            # 串流 VAD 檢測
+            self.streaming_vad_total += 1
+            is_speech = True  # 預設有語音
+
+            if self.streaming_vad_enabled and not is_final:
+                is_speech = self._check_speech_energy(samples)
+                if not is_speech:
+                    self.streaming_vad_skipped += 1
+                    # 靜音，返回上次結果，不送辨識
+                    last_text = session.get("last_partial_text", "")
+                    return {
+                        "success": True,
+                        "session_id": session_id,
+                        "partial_text": last_text,
+                        "is_endpoint": False,
+                        "is_final": False,
+                        "is_speech": False,
+                    }
+
+            # 有語音或 is_final，餵入音頻數據
             stream.accept_waveform(16000, samples)
             session["sample_count"] += len(samples)
 
@@ -733,13 +766,18 @@ class SherpaServer:
 
             # 返回累積的 buffer + 當前 partial
             current_text = (session["text_buffer"] + partial_text).strip()
+            traditional_text = to_traditional(current_text)
+
+            # 儲存給下次 VAD 跳過時使用
+            session["last_partial_text"] = traditional_text
 
             return {
                 "success": True,
                 "session_id": session_id,
-                "partial_text": to_traditional(current_text),
+                "partial_text": traditional_text,
                 "is_endpoint": is_endpoint,
                 "is_final": is_final,
+                "is_speech": True,
             }
 
         except Exception as e:
@@ -950,6 +988,13 @@ class SherpaServer:
             "engine": "sherpa-onnx",
             "num_threads": self.num_threads,
             "vad_enabled": self.vad is not None,
+            # 串流 VAD 統計
+            "streaming_vad_enabled": self.streaming_vad_enabled,
+            "streaming_vad_total": self.streaming_vad_total,
+            "streaming_vad_skipped": self.streaming_vad_skipped,
+            "streaming_vad_efficiency": round(
+                self.streaming_vad_skipped / max(1, self.streaming_vad_total) * 100, 1
+            ),
         }
 
     # ========== 熱詞管理方法 ==========
