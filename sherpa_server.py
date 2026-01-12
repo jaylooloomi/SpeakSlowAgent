@@ -630,11 +630,11 @@ class SherpaServer:
                 "sample_rate": 16000,
                 "feature_dim": 80,
                 "decoding_method": decoding_method,
-                # 極速 endpoint 檢測設定
+                # 平衡 endpoint 檢測設定（穩定性優先）
                 "enable_endpoint_detection": True,
-                "rule1_min_trailing_silence": 1.2,   # 長靜音後結束 (原 2.4)
-                "rule2_min_trailing_silence": 0.6,   # 短靜音後結束 (原 1.2)
-                "rule3_min_utterance_length": 8,     # 最小句子長度 (原 20)
+                "rule1_min_trailing_silence": 1.8,   # 長靜音後結束
+                "rule2_min_trailing_silence": 0.9,   # 短靜音後結束
+                "rule3_min_utterance_length": 12,    # 最小句子長度
             }
 
             # 如果有熱詞，加入熱詞相關參數
@@ -831,19 +831,28 @@ class SherpaServer:
             final_result = self.streaming_recognizer.get_result(stream)
             remaining_text = final_result.strip() if final_result else ""
 
-            # text_buffer 已經包含所有 endpoint 時加過標點的文字
-            # 只需要處理 endpoint 後的「剩餘文字」（通常很短或為空）
-            if remaining_text:
-                # 檢查剩餘文字是否已經在 buffer 中（避免重複）
-                if remaining_text not in session["text_buffer"]:
+            logger.info(f"[stream_end] text_buffer='{session['text_buffer'][:50] if session['text_buffer'] else '(空)'}', remaining='{remaining_text[:50] if remaining_text else '(空)'}'")
+
+            # 組合最終文字
+            if session["text_buffer"]:
+                # 有 buffer（之前有觸發 endpoint）
+                if remaining_text and remaining_text not in session["text_buffer"]:
+                    # 還有剩餘文字，加標點後合併
                     remaining_with_punc = self._add_punctuation(remaining_text)
                     text_with_punc = (session["text_buffer"] + remaining_with_punc).strip()
                 else:
-                    # 剩餘文字已經在 buffer 中，直接使用 buffer
+                    # 沒有剩餘或已在 buffer 中
                     text_with_punc = session["text_buffer"].strip()
+            elif remaining_text:
+                # 沒有 buffer 但有剩餘文字（短句沒觸發 endpoint）
+                text_with_punc = self._add_punctuation(remaining_text)
+                logger.info(f"[stream_end] 使用 remaining_text 作為最終結果")
             else:
-                # 沒有剩餘文字，直接使用 buffer
-                text_with_punc = session["text_buffer"].strip()
+                # 完全沒有文字，嘗試使用 last_partial_text
+                text_with_punc = session.get("last_partial_text", "").strip()
+                if text_with_punc:
+                    # 從繁體轉回簡體再加標點（last_partial_text 已經是繁體）
+                    logger.info(f"[stream_end] 使用 last_partial_text 作為最終結果: {text_with_punc[:30]}")
 
             # 保存原始文字（用於 debug）
             raw_text = text_with_punc

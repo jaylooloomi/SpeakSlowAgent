@@ -29,12 +29,12 @@ export const useStreamingRecording = () => {
   const audioBufferRef = useRef([]);
   const sendIntervalRef = useRef(null);
 
-  // VAD 停頓偵測 - 極速設定
+  // VAD 停頓偵測 - 平衡設定（穩定性優先）
   const silenceStartRef = useRef(null);  // 靜音開始時間
   const lastVoiceTimeRef = useRef(null); // 最後有聲音的時間
   const segmentTextRef = useRef('');     // 當前段落累積的文字
-  const SILENCE_THRESHOLD = 0.008;       // 靜音門檻（更敏感，原 0.01）
-  const SILENCE_DURATION = 300;          // 靜音持續多久觸發分段（ms）- 極速分段（原 400）
+  const SILENCE_THRESHOLD = 0.01;        // 靜音門檻
+  const SILENCE_DURATION = 500;          // 靜音持續多久觸發分段（ms）
 
   // 麥克風權限狀態快取
   const micPermissionRef = useRef('unknown');
@@ -153,8 +153,7 @@ export const useStreamingRecording = () => {
 
       // 創建 ScriptProcessor 來獲取原始音頻數據
       // 注意：ScriptProcessor 已被標記為 deprecated，但 AudioWorklet 較複雜
-      // 使用 2048 buffer 降低延遲（原 4096）
-      const bufferSize = 2048;
+      const bufferSize = 4096;  // 標準 buffer size，確保音頻穩定
       const processor = audioContext.createScriptProcessor(bufferSize, 1, 1);
       processorRef.current = processor;
 
@@ -207,7 +206,7 @@ export const useStreamingRecording = () => {
       streamingActiveRef.current = true;
       setIsInitializing(false);
 
-      // 定期發送音頻數據（極速模式：每 150ms）
+      // 定期發送音頻數據（平衡模式：每 250ms）
       sendIntervalRef.current = setInterval(async () => {
         if (!streamingActiveRef.current || audioBufferRef.current.length === 0) return;
 
@@ -266,7 +265,7 @@ export const useStreamingRecording = () => {
             console.error('串流辨識錯誤:', err);
           }
         }
-      }, 150);  // 極速模式：150ms 間隔（原 300ms）
+      }, 250);  // 平衡模式：250ms 間隔
 
     } catch (err) {
       setError(`無法開始串流錄音: ${err.message}`);
