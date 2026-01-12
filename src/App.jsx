@@ -1020,7 +1020,7 @@ export default function App() {
           )}
 
           {/* 串流辨識即時文字顯示 */}
-          {streamingMode && isRecording && fullText && (
+          {streamingMode && isRecording && (partialText || fullText) && (
             <div className="mt-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg max-h-32 overflow-y-auto">
               <p className="text-sm text-blue-800 dark:text-blue-200 whitespace-pre-wrap">
                 {fullText}

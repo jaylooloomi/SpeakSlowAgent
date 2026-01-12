@@ -1047,6 +1047,135 @@ class SherpaManager {
       };
     }
   }
+
+  // =====================================================
+  // 串流辨識 API
+  // =====================================================
+
+  /**
+   * 初始化串流辨識會話
+   * @param {Object} options - 選項
+   * @param {number} options.sampleRate - 採樣率，預設 16000
+   * @returns {Promise<{success: boolean, sessionId: string}>}
+   */
+  async streamingStart(options = {}) {
+    if (!this.serverReady) {
+      if (this.initializationPromise) {
+        await this.initializationPromise;
+      }
+      if (!this.serverReady) {
+        return { success: false, error: "Sherpa 服務器未就緒" };
+      }
+    }
+
+    try {
+      const sessionId = crypto.randomUUID();
+      const result = await this._sendServerCommand({
+        action: "stream_init",
+        session_id: sessionId,
+        options: {
+          sample_rate: options.sampleRate || 16000,
+        },
+      });
+
+      if (result.success) {
+        this.activeStreamSession = sessionId;
+        this.logger.info && this.logger.info("串流會話已創建:", sessionId);
+      }
+
+      return result;
+    } catch (error) {
+      this.logger.error && this.logger.error("創建串流會話失敗:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * 發送音頻數據到串流會話
+   * @param {string} audioData - Base64 編碼的音頻數據
+   * @param {boolean} isFinal - 是否為最後一段
+   * @returns {Promise<{success: boolean, partialText: string}>}
+   */
+  async streamingFeed(audioData, isFinal = false) {
+    if (!this.activeStreamSession) {
+      return { success: false, error: "沒有活動的串流會話" };
+    }
+
+    if (!this.serverReady) {
+      return { success: false, error: "Sherpa 服務器未就緒" };
+    }
+
+    try {
+      const result = await this._sendServerCommand({
+        action: "stream_feed",
+        session_id: this.activeStreamSession,
+        audio_data: audioData,
+        is_final: isFinal,
+      });
+
+      return result;
+    } catch (error) {
+      this.logger.error && this.logger.error("發送串流數據失敗:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * 結束串流會話並獲取最終結果
+   * @returns {Promise<{success: boolean, finalText: string, rawText: string}>}
+   */
+  async streamingEnd() {
+    if (!this.activeStreamSession) {
+      return { success: false, error: "沒有活動的串流會話" };
+    }
+
+    if (!this.serverReady) {
+      return { success: false, error: "Sherpa 服務器未就緒" };
+    }
+
+    try {
+      const result = await this._sendServerCommand({
+        action: "stream_end",
+        session_id: this.activeStreamSession,
+      });
+
+      this.activeStreamSession = null;
+      this.logger.info && this.logger.info("串流會話已結束:", result);
+
+      return result;
+    } catch (error) {
+      this.logger.error && this.logger.error("結束串流會話失敗:", error);
+      this.activeStreamSession = null;
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * 預載串流模型以減少首次延遲
+   * @returns {Promise<{success: boolean}>}
+   */
+  async preloadStreamingModel() {
+    if (!this.serverReady) {
+      if (this.initializationPromise) {
+        await this.initializationPromise;
+      }
+      if (!this.serverReady) {
+        return { success: false, error: "Sherpa 服務器未就緒" };
+      }
+    }
+
+    try {
+      const result = await this._sendServerCommand({
+        action: "init_streaming",
+      });
+
+      this.logger.info && this.logger.info("串流模型預載結果:", result);
+      return result;
+    } catch (error) {
+      this.logger.error && this.logger.error("預載串流模型失敗:", error);
+      return { success: false, error: error.message };
+    }
+  }
 }
 
 module.exports = SherpaManager;

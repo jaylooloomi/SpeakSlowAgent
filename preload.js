@@ -25,11 +25,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
   checkSherpaStatus: () => ipcRenderer.invoke("check-sherpa-status"),
   restartSherpaServer: () => ipcRenderer.invoke("restart-sherpa-server"),
 
-  // 串流辨識 API（暫不支持）
-  // streamingStart: () => ipcRenderer.invoke("streaming-start"),
-  // streamingFeed: (audioChunk, isFinal) => ipcRenderer.invoke("streaming-feed", audioChunk, isFinal),
-  // streamingEnd: () => ipcRenderer.invoke("streaming-end"),
-  // preloadStreamingModel: () => ipcRenderer.invoke("preload-streaming-model"),
+  // 串流辨識 API (Zipformer Transducer)
+  streamingStart: (options) => ipcRenderer.invoke("streaming-start", options),
+  streamingFeed: (audioChunk, isFinal) => ipcRenderer.invoke("streaming-feed", audioChunk, isFinal),
+  streamingEnd: () => ipcRenderer.invoke("streaming-end"),
+  preloadStreamingModel: () => ipcRenderer.invoke("preload-streaming-model"),
 
   // 模型文件管理
   checkModelFiles: () => ipcRenderer.invoke("check-model-files"),

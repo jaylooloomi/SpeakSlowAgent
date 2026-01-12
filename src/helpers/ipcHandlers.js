@@ -130,22 +130,42 @@ class IPCHandlers {
       return result;
     });
 
-    // 串流辨識 API (Sherpa 暫不支持，先註釋掉)
-    // ipcMain.handle("streaming-start", async () => {
-    //   return await this.sherpaManager.streamingStart();
-    // });
+    // 串流辨識 API (Zipformer Transducer)
+    ipcMain.handle("streaming-start", async (event, options = {}) => {
+      try {
+        return await this.sherpaManager.streamingStart(options);
+      } catch (error) {
+        this.logger.error("串流辨識啟動失敗:", error);
+        return { success: false, error: error.message };
+      }
+    });
 
-    // ipcMain.handle("streaming-feed", async (event, audioChunk, isFinal) => {
-    //   return await this.sherpaManager.streamingFeed(audioChunk, isFinal);
-    // });
+    ipcMain.handle("streaming-feed", async (event, audioChunk, isFinal = false) => {
+      try {
+        return await this.sherpaManager.streamingFeed(audioChunk, isFinal);
+      } catch (error) {
+        this.logger.error("串流辨識送入音訊失敗:", error);
+        return { success: false, error: error.message };
+      }
+    });
 
-    // ipcMain.handle("streaming-end", async () => {
-    //   return await this.sherpaManager.streamingEnd();
-    // });
+    ipcMain.handle("streaming-end", async () => {
+      try {
+        return await this.sherpaManager.streamingEnd();
+      } catch (error) {
+        this.logger.error("串流辨識結束失敗:", error);
+        return { success: false, error: error.message };
+      }
+    });
 
-    // ipcMain.handle("preload-streaming-model", async () => {
-    //   return await this.sherpaManager.preloadStreamingModel();
-    // });
+    ipcMain.handle("preload-streaming-model", async () => {
+      try {
+        return await this.sherpaManager.preloadStreamingModel();
+      } catch (error) {
+        this.logger.error("預載串流模型失敗:", error);
+        return { success: false, error: error.message };
+      }
+    });
 
     // 数据库相关
     ipcMain.handle("save-transcription", (event, data) => {

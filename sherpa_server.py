@@ -16,6 +16,25 @@ import tempfile
 import wave
 import numpy as np
 
+# 簡轉繁轉換器
+try:
+    from opencc import OpenCC
+    _opencc_converter = OpenCC('s2twp')  # 簡體到繁體（台灣用語）
+    logger_init = logging.getLogger(__name__)
+except ImportError:
+    _opencc_converter = None
+    logger_init = logging.getLogger(__name__)
+    logger_init.warning("OpenCC 未安裝，將不進行簡轉繁轉換")
+
+def to_traditional(text):
+    """將簡體中文轉換為繁體中文"""
+    if not text or _opencc_converter is None:
+        return text
+    try:
+        return _opencc_converter.convert(text)
+    except Exception:
+        return text
+
 # 設置日誌
 def get_log_path():
     if "ELECTRON_USER_DATA" in os.environ:
@@ -228,14 +247,19 @@ def add_punctuation(text):
 
 class SherpaServer:
     def __init__(self, model_dir=None):
-        self.recognizer = None
+        self.recognizer = None  # 離線辨識器 (Paraformer)
+        self.streaming_recognizer = None  # 串流辨識器 (Zipformer)
         self.vad = None  # Silero VAD 模型
         self.punc_model = None  # FunASR 標點模型
         self.initialized = False
+        self.streaming_initialized = False
         self.running = True
         self.transcription_count = 0
         self.total_audio_duration = 0.0
         self.vad_skipped_duration = 0.0  # 被 VAD 跳過的靜音時長
+
+        # 串流會話管理
+        self.streaming_sessions = {}  # session_id -> stream object
 
         # 動態執行緒數：根據 CPU 核心數調整，最多 8 執行緒
         self.num_threads = min(os.cpu_count() or 4, 8)
@@ -243,12 +267,13 @@ class SherpaServer:
 
         # 模型目錄
         self.model_dir = model_dir or self._find_model_dir()
+        self.streaming_model_dir = self._find_streaming_model_dir()
 
         signal.signal(signal.SIGTERM, self._signal_handler)
         signal.signal(signal.SIGINT, self._signal_handler)
 
     def _find_model_dir(self):
-        """尋找 sherpa-onnx 模型目錄"""
+        """尋找 sherpa-onnx 離線模型目錄 (Paraformer)"""
         # 優先查找項目內的 poc-sherpa 目錄
         script_dir = os.path.dirname(os.path.abspath(__file__))
         poc_model = os.path.join(script_dir, "poc-sherpa", "sherpa-onnx-paraformer-zh-2023-09-14")
@@ -263,6 +288,17 @@ class SherpaServer:
             return cache_model
 
         return poc_model  # 默認返回 poc 路徑
+
+    def _find_streaming_model_dir(self):
+        """尋找 sherpa-onnx 串流模型目錄 (Zipformer)"""
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        streaming_model = os.path.join(
+            script_dir, "poc-sherpa",
+            "sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20"
+        )
+        if os.path.exists(streaming_model):
+            return streaming_model
+        return streaming_model  # 默認返回路徑
 
     def _signal_handler(self, signum, frame):
         logger.info(f"收到信號 {signum}，準備退出...")
@@ -496,6 +532,220 @@ class SherpaServer:
             logger.error(traceback.format_exc())
             return {"success": False, "error": error_msg, "type": "init_error"}
 
+    def initialize_streaming(self):
+        """初始化串流辨識器 (Zipformer Transducer)"""
+        if self.streaming_initialized:
+            return {"success": True, "message": "串流模型已初始化"}
+
+        try:
+            import time
+            start_time = time.time()
+            logger.info(f"正在初始化串流辨識器，模型目錄: {self.streaming_model_dir}")
+
+            # 檢查模型文件
+            encoder_path = os.path.join(self.streaming_model_dir, "encoder-epoch-99-avg-1.onnx")
+            decoder_path = os.path.join(self.streaming_model_dir, "decoder-epoch-99-avg-1.onnx")
+            joiner_path = os.path.join(self.streaming_model_dir, "joiner-epoch-99-avg-1.onnx")
+            tokens_path = os.path.join(self.streaming_model_dir, "tokens.txt")
+
+            for path, name in [(encoder_path, "encoder"), (decoder_path, "decoder"),
+                               (joiner_path, "joiner"), (tokens_path, "tokens")]:
+                if not os.path.exists(path):
+                    return {
+                        "success": False,
+                        "error": f"串流模型文件不存在: {path}",
+                        "type": "streaming_model_not_found"
+                    }
+
+            import sherpa_onnx
+
+            # 創建串流辨識器 (Transducer)
+            self.streaming_recognizer = sherpa_onnx.OnlineRecognizer.from_transducer(
+                encoder=encoder_path,
+                decoder=decoder_path,
+                joiner=joiner_path,
+                tokens=tokens_path,
+                num_threads=self.num_threads,
+                sample_rate=16000,
+                feature_dim=80,
+                decoding_method="greedy_search",
+                enable_endpoint_detection=True,
+                rule1_min_trailing_silence=2.4,
+                rule2_min_trailing_silence=1.2,
+                rule3_min_utterance_length=20,
+            )
+
+            load_time = time.time() - start_time
+            self.streaming_initialized = True
+            logger.info(f"串流辨識器初始化完成，耗時: {load_time:.2f} 秒")
+
+            return {
+                "success": True,
+                "message": f"串流辨識器初始化成功，耗時: {load_time:.2f} 秒",
+            }
+
+        except Exception as e:
+            error_msg = f"串流辨識器初始化失敗: {str(e)}"
+            logger.error(error_msg)
+            logger.error(traceback.format_exc())
+            return {"success": False, "error": error_msg, "type": "streaming_init_error"}
+
+    def stream_init(self, session_id, options=None):
+        """初始化串流會話"""
+        # 確保串流辨識器已初始化
+        if not self.streaming_initialized:
+            init_result = self.initialize_streaming()
+            if not init_result["success"]:
+                return init_result
+
+        try:
+            # 創建新的串流
+            stream = self.streaming_recognizer.create_stream()
+            self.streaming_sessions[session_id] = {
+                "stream": stream,
+                "text_buffer": "",
+                "sample_count": 0,
+                "start_time": __import__('time').time(),
+            }
+
+            logger.info(f"串流會話已創建: {session_id}")
+            return {
+                "success": True,
+                "session_id": session_id,
+                "message": "串流會話已初始化"
+            }
+
+        except Exception as e:
+            error_msg = f"創建串流會話失敗: {str(e)}"
+            logger.error(error_msg)
+            return {"success": False, "error": error_msg}
+
+    def stream_feed(self, session_id, audio_data, is_final=False):
+        """接收音頻數據並返回中間結果"""
+        if session_id not in self.streaming_sessions:
+            return {"success": False, "error": f"會話不存在: {session_id}"}
+
+        try:
+            import base64
+
+            session = self.streaming_sessions[session_id]
+            stream = session["stream"]
+
+            # 解碼 Base64 音頻數據
+            audio_bytes = base64.b64decode(audio_data)
+            samples = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+
+            # 餵入音頻數據
+            stream.accept_waveform(16000, samples)
+            session["sample_count"] += len(samples)
+
+            # 解碼並獲取中間結果
+            decode_count = 0
+            while self.streaming_recognizer.is_ready(stream):
+                self.streaming_recognizer.decode_stream(stream)
+                decode_count += 1
+
+            # 獲取當前結果
+            result = self.streaming_recognizer.get_result(stream)
+
+            # Debug: 看 result 的類型和內容
+            logger.debug(f"[串流] decode_count={decode_count}, result type={type(result)}, result={repr(result)[:200]}")
+
+            # 處理結果 - result 可能是字串或物件
+            if isinstance(result, str):
+                partial_text = result.strip()
+            elif hasattr(result, 'text'):
+                partial_text = result.text.strip() if result.text else ""
+            else:
+                partial_text = str(result).strip() if result else ""
+
+            # Debug log 僅在有文字時記錄
+            if partial_text:
+                logger.info(f"[串流] 即時結果: {partial_text}")
+
+            # 檢查是否檢測到端點（句子結束）
+            is_endpoint = self.streaming_recognizer.is_endpoint(stream)
+            if is_endpoint:
+                # 累積到 buffer
+                if partial_text:
+                    session["text_buffer"] += partial_text + " "
+                    logger.info(f"[串流] 端點檢測，累積: {partial_text}")
+                # 重置 stream 以開始新句子
+                self.streaming_recognizer.reset(stream)
+                partial_text = ""
+
+            # 返回累積的 buffer + 當前 partial
+            current_text = (session["text_buffer"] + partial_text).strip()
+
+            return {
+                "success": True,
+                "session_id": session_id,
+                "partial_text": to_traditional(current_text),
+                "is_endpoint": is_endpoint,
+                "is_final": is_final,
+            }
+
+        except Exception as e:
+            error_msg = f"處理音頻數據失敗: {str(e)}"
+            logger.error(error_msg)
+            logger.error(traceback.format_exc())
+            return {"success": False, "error": error_msg}
+
+    def stream_end(self, session_id):
+        """結束串流會話並返回最終結果"""
+        if session_id not in self.streaming_sessions:
+            return {"success": False, "error": f"會話不存在: {session_id}"}
+
+        try:
+            import time
+
+            session = self.streaming_sessions[session_id]
+            stream = session["stream"]
+
+            # 標記輸入結束
+            stream.input_finished()
+
+            # 最後一次解碼
+            while self.streaming_recognizer.is_ready(stream):
+                self.streaming_recognizer.decode_stream(stream)
+
+            # 獲取最終結果
+            final_result = self.streaming_recognizer.get_result(stream)
+            final_text = final_result.strip() if final_result else ""
+
+            # 合併 buffer 和最終結果
+            full_text = (session["text_buffer"] + final_text).strip()
+
+            # 計算時長
+            duration = session["sample_count"] / 16000.0
+            elapsed = time.time() - session["start_time"]
+
+            # 加入標點
+            text_with_punc = self._add_punctuation(full_text)
+
+            # 清理會話
+            del self.streaming_sessions[session_id]
+
+            logger.info(f"串流會話結束: {session_id}, 結果: {text_with_punc[:50]}...")
+
+            return {
+                "success": True,
+                "session_id": session_id,
+                "final_text": to_traditional(text_with_punc),
+                "raw_text": to_traditional(full_text),
+                "duration": round(duration, 2),
+                "process_time": round(elapsed, 2),
+            }
+
+        except Exception as e:
+            error_msg = f"結束串流會話失敗: {str(e)}"
+            logger.error(error_msg)
+            logger.error(traceback.format_exc())
+            # 嘗試清理會話
+            if session_id in self.streaming_sessions:
+                del self.streaming_sessions[session_id]
+            return {"success": False, "error": error_msg}
+
     def _read_wave_file(self, wav_path):
         """讀取 WAV 檔案"""
         with wave.open(wav_path, 'rb') as wf:
@@ -580,11 +830,11 @@ class SherpaServer:
 
             return {
                 "success": True,
-                "text": text_with_punc,
-                "raw_text": text,  # 保留原始無標點文本
+                "text": to_traditional(text_with_punc),
+                "raw_text": to_traditional(text),  # 保留原始無標點文本
                 "confidence": 0.95,  # sherpa-onnx 不提供置信度，給個默認值
                 "duration": duration,
-                "language": "zh-CN",
+                "language": "zh-TW",
                 "model_type": "sherpa-onnx",
                 "rtf": rtf,
                 "process_time": elapsed,
@@ -605,20 +855,25 @@ class SherpaServer:
                 "success": True,
                 "installed": True,
                 "initialized": self.initialized,
+                "streaming_initialized": self.streaming_initialized,
                 "version": sherpa_onnx.__version__,
                 "model_dir": self.model_dir,
+                "streaming_model_dir": self.streaming_model_dir,
                 "num_threads": self.num_threads,
                 "models": {
                     "asr": self.recognizer is not None,
+                    "streaming_asr": self.streaming_recognizer is not None,
                     "vad": self.vad is not None,  # Silero VAD 狀態
                     "punc": self.punc_model is not None,  # ct-punc 狀態
                 },
+                "active_streaming_sessions": len(self.streaming_sessions),
             }
         except ImportError:
             return {
                 "success": False,
                 "installed": False,
                 "initialized": False,
+                "streaming_initialized": False,
                 "error": "sherpa-onnx 未安裝",
             }
 
@@ -678,6 +933,22 @@ class SherpaServer:
                     result = self.check_status()
                 elif action == "stats":
                     result = {"success": True, "stats": self.get_performance_stats()}
+                # ========== 串流辨識命令 ==========
+                elif action == "stream_init":
+                    session_id = command.get("session_id")
+                    options = command.get("options", {})
+                    result = self.stream_init(session_id, options)
+                elif action == "stream_feed":
+                    session_id = command.get("session_id")
+                    audio_data = command.get("audio_data")
+                    is_final = command.get("is_final", False)
+                    result = self.stream_feed(session_id, audio_data, is_final)
+                elif action == "stream_end":
+                    session_id = command.get("session_id")
+                    result = self.stream_end(session_id)
+                elif action == "init_streaming":
+                    result = self.initialize_streaming()
+                # ================================
                 elif action == "exit":
                     result = {"success": True, "message": "服務器退出"}
                     print(json.dumps(result, ensure_ascii=False))
