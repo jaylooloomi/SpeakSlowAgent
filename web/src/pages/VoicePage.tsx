@@ -1,44 +1,132 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Mic, MicOff, ArrowLeft, Copy, Trash2, Loader2 } from 'lucide-react'
+import { Mic, MicOff, ArrowLeft, Copy, Trash2, Loader2, Wifi, WifiOff } from 'lucide-react'
+import { useWebSocket } from '../hooks/useWebSocket'
+import { useAudioRecorder } from '../hooks/useAudioRecorder'
 
-type RecordingState = 'idle' | 'recording' | 'processing'
+type RecordingState = 'idle' | 'connecting' | 'recording' | 'processing'
 
 export default function VoicePage() {
   const [state, setState] = useState<RecordingState>('idle')
-  const [transcript, setTranscript] = useState('')
-  const [error, setError] = useState<string | null>(null)
+
+  const {
+    isConnected,
+    connectionState,
+    partialText,
+    finalText,
+    error: wsError,
+    connect,
+    disconnect,
+    startRecording: wsStartRecording,
+    stopRecording: wsStopRecording,
+    sendAudio,
+    clearText,
+  } = useWebSocket()
+
+  const {
+    isRecording,
+    volumeLevel,
+    error: recorderError,
+    startRecording: startAudioRecording,
+    stopRecording: stopAudioRecording,
+    onAudioData,
+  } = useAudioRecorder()
+
+  // 設置音訊數據回調
+  useEffect(() => {
+    onAudioData((data) => {
+      if (isConnected && isRecording) {
+        sendAudio(data)
+      }
+    })
+  }, [onAudioData, sendAudio, isConnected, isRecording])
+
+  // 組合顯示文字
+  const displayText = partialText
+    ? `${finalText}${finalText ? '\n' : ''}${partialText}`
+    : finalText
+
+  const error = wsError || recorderError
 
   const handleMicClick = useCallback(async () => {
     if (state === 'recording') {
-      // Stop recording
+      // 停止錄音
       setState('processing')
-      // TODO: Stop audio recording and send to server
+      stopAudioRecording()
+      wsStopRecording()
+
+      // 等待最終結果
       setTimeout(() => {
         setState('idle')
-      }, 1000)
+      }, 500)
     } else if (state === 'idle') {
-      // Start recording
-      setError(null)
+      // 開始錄音
+      setState('connecting')
+
       try {
-        // TODO: Start audio recording
+        // 先連接 WebSocket
+        if (!isConnected) {
+          connect()
+          // 等待連接
+          await new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('連接超時')), 5000)
+            const checkConnection = setInterval(() => {
+              if (connectionState === 'connected') {
+                clearInterval(checkConnection)
+                clearTimeout(timeout)
+                resolve()
+              } else if (connectionState === 'error') {
+                clearInterval(checkConnection)
+                clearTimeout(timeout)
+                reject(new Error('連接失敗'))
+              }
+            }, 100)
+          })
+        }
+
+        // 開始音訊錄製
+        await startAudioRecording()
+
+        // 通知伺服器開始
+        wsStartRecording()
+
         setState('recording')
       } catch (err) {
-        setError('無法存取麥克風')
-        console.error(err)
+        console.error('Failed to start recording:', err)
+        setState('idle')
       }
     }
-  }, [state])
+  }, [state, isConnected, connectionState, connect, startAudioRecording, stopAudioRecording, wsStartRecording, wsStopRecording])
 
   const handleCopy = useCallback(() => {
-    if (transcript) {
-      navigator.clipboard.writeText(transcript)
+    if (displayText) {
+      navigator.clipboard.writeText(displayText)
     }
-  }, [transcript])
+  }, [displayText])
 
   const handleClear = useCallback(() => {
-    setTranscript('')
-  }, [])
+    clearText()
+  }, [clearText])
+
+  // 連接狀態指示器
+  const ConnectionIndicator = () => (
+    <div className={`flex items-center gap-1 text-xs ${
+      isConnected ? 'text-green-500' : 'text-gray-400'
+    }`}>
+      {isConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+      <span>{isConnected ? '已連接' : '未連接'}</span>
+    </div>
+  )
+
+  // 音量指示器
+  const VolumeIndicator = () => (
+    <div className="w-32 h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+      <div
+        className="h-full bg-green-500 transition-all duration-75"
+        style={{ width: `${volumeLevel * 100}%` }}
+      />
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex flex-col">
@@ -54,7 +142,7 @@ export default function VoicePage() {
         <h1 className="font-title text-xl font-bold text-gray-900 dark:text-white">
           聲聲慢
         </h1>
-        <div className="w-20" /> {/* Spacer */}
+        <ConnectionIndicator />
       </header>
 
       {/* Main Content */}
@@ -62,10 +150,11 @@ export default function VoicePage() {
         {/* Transcript Display */}
         <div className="w-full max-w-2xl mb-8">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 min-h-[200px] relative">
-            {transcript ? (
+            {displayText ? (
               <>
                 <p className="font-content text-lg text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
-                  {transcript}
+                  {displayText}
+                  {partialText && <span className="text-gray-400">|</span>}
                 </p>
                 <div className="absolute top-4 right-4 flex gap-2">
                   <button
@@ -87,6 +176,7 @@ export default function VoicePage() {
             ) : (
               <p className="text-gray-400 dark:text-gray-500 text-center">
                 {state === 'idle' && '點擊麥克風開始錄音'}
+                {state === 'connecting' && '正在連接...'}
                 {state === 'recording' && '正在聆聽...'}
                 {state === 'processing' && '處理中...'}
               </p>
@@ -101,12 +191,19 @@ export default function VoicePage() {
           </div>
         )}
 
+        {/* Volume Indicator */}
+        {state === 'recording' && (
+          <div className="mb-4">
+            <VolumeIndicator />
+          </div>
+        )}
+
         {/* Microphone Button */}
         <button
           onClick={handleMicClick}
-          disabled={state === 'processing'}
+          disabled={state === 'processing' || state === 'connecting'}
           className={`
-            w-20 h-20 rounded-full flex items-center justify-center transition-all
+            w-20 h-20 rounded-full flex items-center justify-center transition-all relative
             ${state === 'idle'
               ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl'
               : state === 'recording'
@@ -115,7 +212,7 @@ export default function VoicePage() {
             }
           `}
         >
-          {state === 'processing' ? (
+          {state === 'processing' || state === 'connecting' ? (
             <Loader2 className="w-8 h-8 animate-spin" />
           ) : state === 'recording' ? (
             <MicOff className="w-8 h-8" />
@@ -127,6 +224,7 @@ export default function VoicePage() {
         {/* Status Text */}
         <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
           {state === 'idle' && '點擊開始錄音'}
+          {state === 'connecting' && '正在連接伺服器...'}
           {state === 'recording' && '點擊停止錄音'}
           {state === 'processing' && '正在辨識...'}
         </p>
@@ -134,7 +232,7 @@ export default function VoicePage() {
 
       {/* Footer */}
       <footer className="p-4 text-center text-sm text-gray-400 dark:text-gray-500">
-        網頁版功能開發中，完整功能請使用桌面版
+        <p>需要啟動後端服務：python sherpa_web_server.py</p>
       </footer>
     </div>
   )
