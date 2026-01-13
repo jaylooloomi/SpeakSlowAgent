@@ -557,23 +557,33 @@ class SherpaServer:
             start_time = time.time()
             logger.info(f"正在初始化串流辨識器，模型目錄: {self.streaming_model_dir}")
 
-            # 檢查模型文件 - 優先使用 int8 量化模型（推理速度快 2-3x）
+            # 檢查模型文件 - 暫時優先使用 fp32 模型（較準確）
+            # TODO: 待品質問題解決後，可考慮恢復 int8 以提升速度
+            encoder_fp32 = os.path.join(self.streaming_model_dir, "encoder-epoch-99-avg-1.onnx")
+            decoder_fp32 = os.path.join(self.streaming_model_dir, "decoder-epoch-99-avg-1.onnx")
+            joiner_fp32 = os.path.join(self.streaming_model_dir, "joiner-epoch-99-avg-1.onnx")
+
             encoder_int8 = os.path.join(self.streaming_model_dir, "encoder-epoch-99-avg-1.int8.onnx")
             decoder_int8 = os.path.join(self.streaming_model_dir, "decoder-epoch-99-avg-1.int8.onnx")
             joiner_int8 = os.path.join(self.streaming_model_dir, "joiner-epoch-99-avg-1.int8.onnx")
 
-            # 檢查 int8 模型是否存在
-            use_int8 = os.path.exists(encoder_int8) and os.path.exists(decoder_int8) and os.path.exists(joiner_int8)
+            # 優先使用 fp32 模型（品質更好），int8 作為後備
+            use_fp32 = os.path.exists(encoder_fp32) and os.path.exists(decoder_fp32) and os.path.exists(joiner_fp32)
 
-            if use_int8:
+            if use_fp32:
+                encoder_path = encoder_fp32
+                decoder_path = decoder_fp32
+                joiner_path = joiner_fp32
+                logger.info("使用 fp32 模型（品質更佳）")
+            elif os.path.exists(encoder_int8) and os.path.exists(decoder_int8) and os.path.exists(joiner_int8):
                 encoder_path = encoder_int8
                 decoder_path = decoder_int8
                 joiner_path = joiner_int8
-                logger.info("使用 int8 量化模型（推理速度更快）")
+                logger.info("使用 int8 量化模型（fp32 不存在）")
             else:
-                encoder_path = os.path.join(self.streaming_model_dir, "encoder-epoch-99-avg-1.onnx")
-                decoder_path = os.path.join(self.streaming_model_dir, "decoder-epoch-99-avg-1.onnx")
-                joiner_path = os.path.join(self.streaming_model_dir, "joiner-epoch-99-avg-1.onnx")
+                encoder_path = encoder_fp32
+                decoder_path = decoder_fp32
+                joiner_path = joiner_fp32
                 logger.info("使用 fp32 模型")
             tokens_path = os.path.join(self.streaming_model_dir, "tokens.txt")
             bpe_vocab_path = os.path.join(self.streaming_model_dir, "bpe.vocab")
