@@ -640,11 +640,11 @@ class SherpaServer:
                 "sample_rate": 16000,
                 "feature_dim": 80,
                 "decoding_method": decoding_method,
-                # 平衡 endpoint 檢測設定（穩定性優先）
+                # 快速 endpoint 檢測設定（速度優先）
                 "enable_endpoint_detection": True,
-                "rule1_min_trailing_silence": 1.8,   # 長靜音後結束
-                "rule2_min_trailing_silence": 0.9,   # 短靜音後結束
-                "rule3_min_utterance_length": 12,    # 最小句子長度
+                "rule1_min_trailing_silence": 1.0,   # 長靜音後結束
+                "rule2_min_trailing_silence": 0.5,   # 短靜音後結束
+                "rule3_min_utterance_length": 6,     # 最小句子長度
             }
 
             # 如果有熱詞，加入熱詞相關參數
