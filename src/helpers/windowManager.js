@@ -187,6 +187,7 @@ class WindowManager {
       height: 600,
       show: false,
       title: "設定 - 聲聲慢",
+      frame: false,          // 移除原生標題列（改用 settings.jsx 內的自訂標題列）
       alwaysOnTop: true,
       webPreferences: {
         nodeIntegration: false,
