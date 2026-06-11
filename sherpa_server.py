@@ -604,6 +604,36 @@ class SherpaServer:
             logger.warning(f"VAD 處理失敗: {e}，使用原始音頻")
             return samples, 0.0
 
+    def _transcribe_samples(self, samples, sample_rate):
+        """辨識單一段音訊樣本，回傳原始文字（不含標點/繁簡轉換）"""
+        stream = self.recognizer.create_stream()
+        stream.accept_waveform(sample_rate, samples)
+        self.recognizer.decode_stream(stream)
+        return (stream.result.text or "").strip()
+
+    def _vad_segment_list(self, samples):
+        """用 VAD 把音訊切成多段語音（每段 ≤ max_speech_duration），
+        回傳 list of np.float32 array；無 VAD / 失敗回 None。"""
+        if self.vad is None:
+            return None
+        try:
+            self.vad.reset()
+            window_size = 512
+            for i in range(0, len(samples), window_size):
+                chunk = samples[i:i + window_size]
+                if len(chunk) < window_size:
+                    chunk = np.pad(chunk, (0, window_size - len(chunk)), 'constant')
+                self.vad.accept_waveform(chunk)
+            self.vad.flush()
+            segs = []
+            while not self.vad.empty():
+                segs.append(np.array(self.vad.front().samples, dtype=np.float32))
+                self.vad.pop()
+            return segs if segs else None
+        except Exception as e:
+            logger.warning(f"VAD 分段失敗: {e}")
+            return None
+
     def _init_punctuation_model(self):
         """在背景線程初始化 sherpa-onnx 標點模型（ct-transformer，免 torch）"""
         import threading
@@ -1185,13 +1215,21 @@ class SherpaServer:
             speech_samples = samples
             skipped_duration = 0.0
 
-            # 創建流並識別
-            stream = self.recognizer.create_stream()
-            stream.accept_waveform(sample_rate, speech_samples)
+            # 長音訊（>15s）：用 VAD 切成多段、每段各自辨識再拼接。
+            # Paraformer 是為短句設計的，整段塞太長會幻聽/吃字；分段可根治。
+            # 短音訊維持原本單次解碼（零回歸）。
+            LONG_AUDIO_SEC = 15.0
+            segments = self._vad_segment_list(speech_samples) if duration > LONG_AUDIO_SEC else None
 
-            # 執行識別
-            self.recognizer.decode_stream(stream)
-            text = stream.result.text
+            if segments and len(segments) > 1:
+                logger.info(f"長音訊分段辨識：{duration:.1f}s -> {len(segments)} 段")
+                raw_parts = [self._transcribe_samples(seg, sample_rate) for seg in segments]
+                text = "".join(p for p in raw_parts if p)
+            else:
+                stream = self.recognizer.create_stream()
+                stream.accept_waveform(sample_rate, speech_samples)
+                self.recognizer.decode_stream(stream)
+                text = stream.result.text
 
             # 文字清理：全形英文→半形 + 去口吃重複（保留正常疊字）
             text = clean_transcript(text)
