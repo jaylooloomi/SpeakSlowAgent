@@ -876,6 +876,17 @@ class IPCHandlers {
             if (this.windowManager?.mainWindow && !this.windowManager.mainWindow.isDestroyed()) {
               this.windowManager.mainWindow.webContents.send("typeless-stop-recording");
             }
+          },
+          onCancelRecording: () => {
+            this.logger.info('TypeLess: 觸發取消錄音 (Esc)');
+            // 隱藏錄音指示器視窗
+            if (this.windowManager) {
+              this.windowManager.hideTypelessIndicator();
+            }
+            // 發送取消錄音事件到渲染進程（丟棄音訊、不轉錄、不貼上）
+            if (this.windowManager?.mainWindow && !this.windowManager.mainWindow.isDestroyed()) {
+              this.windowManager.mainWindow.webContents.send("typeless-cancel-recording");
+            }
           }
         });
 
@@ -1124,7 +1135,7 @@ class IPCHandlers {
         // 註冊所有快捷鍵
         // 略過已停用的錄音熱鍵：toggle-recording（已統一為 TypeLess 右 Alt）
         // 與 typeless-recording（由 TypelessManager 以 uiohook 處理，非 globalShortcut）
-        const SKIP_ACTIONS = new Set(['toggle-recording', 'typeless-recording']);
+        const SKIP_ACTIONS = new Set(['toggle-recording', 'typeless-recording', 'cancel-recording']);
         const results = {};
         for (const [actionId, accelerator] of Object.entries(hotkeyConfig)) {
           if (SKIP_ACTIONS.has(actionId)) continue;

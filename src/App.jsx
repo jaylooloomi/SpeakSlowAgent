@@ -337,6 +337,7 @@ export default function App() {
     isOptimizing,
     startRecording: startRecordingNormal,
     stopRecording: stopRecordingNormal,
+    cancelRecording: cancelRecordingNormal,
     error: recordingErrorNormal
   } = useRecording();
 
@@ -734,14 +735,16 @@ export default function App() {
   };
 
 
-  // 處理取消錄音
+  // 處理取消錄音：丟棄音訊，不轉錄、不貼上（而非 stopRecording 會處理結果）
   const handleCancelRecording = useCallback(() => {
-    if (isRecording) {
-      // 直接停止錄音但不處理結果
-      stopRecording();
+    if (isRecordingNormal) {
+      cancelRecordingNormal();
+      showNotification('info', '錄音已取消');
+    } else if (streamingMode) {
+      cancelStreaming();
       showNotification('info', '錄音已取消');
     }
-  }, [isRecording, stopRecording, showNotification]);
+  }, [isRecordingNormal, cancelRecordingNormal, streamingMode, cancelStreaming, showNotification]);
 
   // 處理複製上次結果
   const handleCopyLastResult = useCallback(async () => {
@@ -831,11 +834,21 @@ export default function App() {
       }
     });
 
+    // 監聽 TypeLess 取消錄音事件（錄音中按 Esc）：丟棄音訊，不轉錄、不貼上
+    const unsubscribeCancel = window.electronAPI.onTypelessCancelRecording?.(() => {
+      console.log('TypeLess: 收到取消錄音事件 (Esc)');
+      if (isRecordingNormal) {
+        cancelRecordingNormal();
+        showNotification('info', '錄音已取消');
+      }
+    });
+
     return () => {
       if (unsubscribeStart) unsubscribeStart();
       if (unsubscribeStop) unsubscribeStop();
+      if (unsubscribeCancel) unsubscribeCancel();
     };
-  }, [typelessMode, isRecordingNormal, isRecordingProcessingNormal, modelStatus.isReady, startRecordingNormal, stopRecordingNormal]);
+  }, [typelessMode, isRecordingNormal, isRecordingProcessingNormal, modelStatus.isReady, startRecordingNormal, stopRecordingNormal, cancelRecordingNormal, showNotification]);
 
   // 同步录音状态到热键管理器
   useEffect(() => {

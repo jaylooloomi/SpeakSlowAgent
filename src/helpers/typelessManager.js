@@ -26,6 +26,7 @@ class TypelessManager {
     // 回調函數
     this.onStartRecording = null;
     this.onStopRecording = null;
+    this.onCancelRecording = null;
 
     // 綁定事件處理器
     this.handleKeyDown = this.handleKeyDown.bind(this);
@@ -35,9 +36,10 @@ class TypelessManager {
   /**
    * 設置回調函數
    */
-  setCallbacks({ onStartRecording, onStopRecording }) {
+  setCallbacks({ onStartRecording, onStopRecording, onCancelRecording }) {
     this.onStartRecording = onStartRecording;
     this.onStopRecording = onStopRecording;
+    this.onCancelRecording = onCancelRecording;
     this.safeLog('info', 'TypeLess 回調函數已設置');
   }
 
@@ -58,6 +60,15 @@ class TypelessManager {
    */
   handleKeyDown(event) {
     if (!this.isEnabled) return;
+
+    // 錄音中按 Esc → 取消（丟棄音訊，不轉錄、不貼上），並重置切換狀態
+    if (this.mode === 'toggle' && this.isActive && event.keycode === UiohookKey.Escape) {
+      this.isActive = false;
+      this.safeLog('info', 'TypeLess(切換): 取消錄音 (Esc)');
+      if (this.onCancelRecording) this.onCancelRecording();
+      return;
+    }
+
     if (event.keycode !== this.triggerKey) return;
 
     if (this.mode === 'toggle') {
@@ -252,6 +263,7 @@ class TypelessManager {
     this.disable();
     this.onStartRecording = null;
     this.onStopRecording = null;
+    this.onCancelRecording = null;
   }
 }
 

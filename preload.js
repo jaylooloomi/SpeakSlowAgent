@@ -141,6 +141,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("typeless-stop-recording", callback);
     return () => ipcRenderer.removeListener("typeless-stop-recording", callback);
   },
+  onTypelessCancelRecording: (callback) => {
+    ipcRenderer.on("typeless-cancel-recording", callback);
+    return () => ipcRenderer.removeListener("typeless-cancel-recording", callback);
+  },
 
   // =====================================================
   // 自定義快捷鍵設定 API

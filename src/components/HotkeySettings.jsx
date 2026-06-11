@@ -6,11 +6,7 @@ import { toast } from "sonner";
 const HOTKEY_ACTIONS = {
   'typeless-recording': {
     name: 'TypeLess 模式',
-    description: '右 Alt 單擊開始錄音，再按一次停止並貼到當前游標處（固定為右 Alt）',
-  },
-  'cancel-recording': {
-    name: '取消錄音',
-    description: '取消當前錄音不處理',
+    description: '右 Alt 單擊開始錄音，再按一次停止並貼到當前游標處。錄音中按 Esc 可取消（固定）',
   },
   'show-window': {
     name: '顯示主視窗',

@@ -98,6 +98,26 @@ export default {
       warning: '热词过多可能影响识别速度，建议不超过 50 个',
       tipTitle: '使用提示',
       tipContent: '热词适合 2-10 个字的专有名词。强度越高识别优先度越高，但可能导致误判。建议从中等强度开始调整。'
+    },
+    dictionary: {
+      title: '字典管理',
+      description: '设定词汇替换规则，自动校正语音识别结果中的专有名词（人名、地名、术语等）',
+      search: '搜寻...',
+      allCategories: '所有分类',
+      add: '新增',
+      import: '导入',
+      export: '导出',
+      edit: '编辑项目',
+      addNew: '新增项目',
+      original: '原始词汇',
+      replacement: '替换为',
+      category: '分类',
+      actions: '操作',
+      noMatch: '没有符合的项目',
+      empty: '尚无字典项目，点击「新增」建立第一个替换规则',
+      total: '共',
+      items: '个项目',
+      enabled: '个启用'
     }
   },
 

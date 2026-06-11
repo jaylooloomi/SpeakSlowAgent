@@ -98,6 +98,26 @@ export default {
       warning: '熱詞過多可能影響辨識速度，建議不超過 50 個',
       tipTitle: '使用提示',
       tipContent: '熱詞適合 2-10 個字的專有名詞。強度越高辨識優先度越高，但可能導致誤判。建議從中等強度開始調整。'
+    },
+    dictionary: {
+      title: '字典管理',
+      description: '設定詞彙替換規則，自動校正語音辨識結果中的專有名詞（人名、地名、術語等）',
+      search: '搜尋...',
+      allCategories: '所有分類',
+      add: '新增',
+      import: '匯入',
+      export: '匯出',
+      edit: '編輯項目',
+      addNew: '新增項目',
+      original: '原始詞彙',
+      replacement: '替換為',
+      category: '分類',
+      actions: '操作',
+      noMatch: '沒有符合的項目',
+      empty: '尚無字典項目，點擊「新增」建立第一個替換規則',
+      total: '共',
+      items: '個項目',
+      enabled: '個啟用'
     }
   },
 

@@ -22,8 +22,9 @@ class HotkeyManager {
     // 預設快捷鍵配置
     // 註：錄音已統一為 TypeLess「右 Alt」（由 TypelessManager 處理，非 globalShortcut），
     //     故不再註冊 toggle-recording（Ctrl+Shift+Space）。
+    // 註：取消錄音改由 TypeLess（uiohook）在「錄音中」偵測 Esc 處理，
+    //     不再註冊全域 Escape（避免劫持所有程式的 Esc）。
     this.defaultHotkeys = {
-      'cancel-recording': 'Escape',
       'show-window': 'CommandOrControl+Shift+Q',
       'copy-last': 'CommandOrControl+Shift+C',
     };
