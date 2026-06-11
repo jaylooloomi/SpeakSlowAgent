@@ -218,7 +218,7 @@ def format_lists(text):
     markers = []
     for m in re.finditer(r'第([一二三四五六七八九十兩两])', text):
         after = text[m.end():m.end() + 1]
-        if after in '次名':  # 第一次=次數、第一名=名次，都不是列點
+        if after in '次名件':  # 第一次=次數、第一名=名次、第一件=計數，都不是列點
             continue
         markers.append((m, m.group(1)))
     if len(markers) < 2 or markers[0][1] != '一':
