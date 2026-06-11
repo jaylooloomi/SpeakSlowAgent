@@ -146,9 +146,16 @@ export const HistoryView = () => {
     try {
       const res = await window.electronAPI.retranscribeTranscription(id);
       if (res?.success) {
+        const prevText = transcriptions.find(it => it.id === id)?.text || '';
         setTranscriptions(prev =>
           prev.map(it => (it.id === id ? { ...it, text: res.text, processed_text: null } : it))
         );
+        const same = (res.text || '').trim() === prevText.trim();
+        const tip = document.createElement('div');
+        tip.textContent = same ? '已重新辨識（結果相同）' : '已重新辨識並更新';
+        tip.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#10b981;color:#fff;padding:8px 16px;border-radius:9999px;font-size:13px;z-index:9999';
+        document.body.appendChild(tip);
+        setTimeout(() => tip.remove(), 2200);
       } else {
         console.warn("重新辨識失敗:", res?.error);
         const tip = document.createElement('div');
@@ -165,7 +172,10 @@ export const HistoryView = () => {
   };
 
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
+    // SQLite CURRENT_TIMESTAMP 是 UTC 的 "YYYY-MM-DD HH:MM:SS"，要當 UTC 解析再轉本地
+    const date = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dateString || '')
+      ? new Date(dateString.replace(' ', 'T') + 'Z')
+      : new Date(dateString);
     const now = new Date();
     const isToday = date.toDateString() === now.toDateString();
     const yesterday = new Date(now);
