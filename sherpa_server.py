@@ -437,6 +437,7 @@ class SherpaServer:
         self.recognizer = None  # 離線辨識器 (Paraformer)
         self.streaming_recognizer = None  # 串流辨識器 (Zipformer)
         self.vad = None  # Silero VAD 模型
+        self.whisper_recognizer = None  # Whisper small（精準/重辨救援，延遲載入）
         self.punc_model = None  # sherpa-onnx ct-transformer 標點模型
         self.initialized = False
         self.streaming_initialized = False
@@ -604,12 +605,38 @@ class SherpaServer:
             logger.warning(f"VAD 處理失敗: {e}，使用原始音頻")
             return samples, 0.0
 
-    def _transcribe_samples(self, samples, sample_rate):
-        """辨識單一段音訊樣本，回傳原始文字（不含標點/繁簡轉換）"""
-        stream = self.recognizer.create_stream()
+    def _transcribe_samples(self, samples, sample_rate, recognizer=None):
+        """辨識單一段音訊樣本，回傳原始文字（不含標點/繁簡轉換）。
+        可指定 recognizer（如 Whisper），預設用 Paraformer。"""
+        rec = recognizer or self.recognizer
+        stream = rec.create_stream()
         stream.accept_waveform(sample_rate, samples)
-        self.recognizer.decode_stream(stream)
+        rec.decode_stream(stream)
         return (stream.result.text or "").strip()
+
+    def _get_whisper_recognizer(self):
+        """延遲載入 Whisper small（精準模式 / 重辨救援用）。首次呼叫才載入。"""
+        if getattr(self, "whisper_recognizer", None) is not None:
+            return self.whisper_recognizer
+        import sherpa_onnx
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        wdir = os.path.join(script_dir, "poc-sherpa", "sherpa-onnx-whisper-small")
+        encoder = os.path.join(wdir, "small-encoder.int8.onnx")
+        decoder = os.path.join(wdir, "small-decoder.int8.onnx")
+        tokens = os.path.join(wdir, "small-tokens.txt")
+        if not (os.path.exists(encoder) and os.path.exists(decoder) and os.path.exists(tokens)):
+            raise RuntimeError("Whisper 模型未下載（poc-sherpa/sherpa-onnx-whisper-small）")
+        logger.info("載入 Whisper small 模型（首次較慢）...")
+        self.whisper_recognizer = sherpa_onnx.OfflineRecognizer.from_whisper(
+            encoder=encoder,
+            decoder=decoder,
+            tokens=tokens,
+            num_threads=self.num_threads,
+            language="zh",
+            task="transcribe",
+        )
+        logger.info("Whisper 模型載入完成")
+        return self.whisper_recognizer
 
     def _vad_segment_list(self, samples):
         """用 VAD 把音訊切成多段語音（每段 ≤ max_speech_duration），
@@ -1200,6 +1227,19 @@ class SherpaServer:
             if not os.path.exists(audio_path):
                 return {"success": False, "error": f"音頻文件不存在: {audio_path}"}
 
+            # 模型選擇：預設 Paraformer（快）；options.model=='whisper' 走精準模式
+            options = options or {}
+            use_whisper = options.get("model") == "whisper"
+            recognizer = self.recognizer
+            if use_whisper:
+                try:
+                    recognizer = self._get_whisper_recognizer()
+                    logger.info("使用 Whisper small 精準模式辨識")
+                except Exception as e:
+                    logger.warning(f"Whisper 不可用，改用 Paraformer: {e}")
+                    use_whisper = False
+                    recognizer = self.recognizer
+
             logger.info(f"開始轉錄音頻文件: {audio_path}")
             start_time = time.time()
 
@@ -1223,13 +1263,10 @@ class SherpaServer:
 
             if segments and len(segments) > 1:
                 logger.info(f"長音訊分段辨識：{duration:.1f}s -> {len(segments)} 段")
-                raw_parts = [self._transcribe_samples(seg, sample_rate) for seg in segments]
+                raw_parts = [self._transcribe_samples(seg, sample_rate, recognizer) for seg in segments]
                 text = "".join(p for p in raw_parts if p)
             else:
-                stream = self.recognizer.create_stream()
-                stream.accept_waveform(sample_rate, speech_samples)
-                self.recognizer.decode_stream(stream)
-                text = stream.result.text
+                text = self._transcribe_samples(speech_samples, sample_rate, recognizer)
 
             # 文字清理：全形英文→半形 + 去口吃重複（保留正常疊字）
             text = clean_transcript(text)
@@ -1240,9 +1277,9 @@ class SherpaServer:
             self.transcription_count += 1
             self.total_audio_duration += duration
 
-            # 加入標點（優先使用 ct-punc 模型）
+            # 加標點（ct-punc 模型）+ 句末語助詞規則。
+            # sherpa 的 Whisper 輸出不帶標點，所以兩種模型都套同一套標點流程。
             text_with_punc = self._add_punctuation(text)
-            # 依句末片語修正 ？/！（補標點模型常漏的驚嘆/疑問）
             text_with_punc = apply_punct_rules(text_with_punc)
 
             logger.info(f"轉錄完成: {text_with_punc[:100]}... (RTF: {rtf:.3f})")
