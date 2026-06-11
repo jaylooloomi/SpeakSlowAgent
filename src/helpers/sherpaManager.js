@@ -951,6 +951,7 @@ class SherpaManager {
         raw_text: result.raw_text,
         confidence: result.confidence || 0.95,
         language: result.language || "zh-CN",
+        duration: result.duration || 0,
         audio_path: persistedAudioPath,
       };
     } catch (error) {

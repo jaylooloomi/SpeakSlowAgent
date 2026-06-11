@@ -64,6 +64,50 @@ const StatsBanner = ({ stats }) => {
   );
 };
 
+// 可分享的數據儀表板（讓使用者想截圖炫耀）
+const ShareStats = ({ stats }) => {
+  const totalChars = stats?.totalChars || 0;
+  const totalSec = stats?.totalDuration || 0;
+  const dictMin = totalSec / 60;
+  const TYPING_SPEED = 30; // 一般人打中文（含思考）約 30 字/分
+  const savedMin = Math.max(0, totalChars / TYPING_SPEED - dictMin);
+  const wpm = dictMin > 0 ? Math.round(totalChars / dictMin) : 0;
+
+  const fmtDur = (min) => {
+    const h = Math.floor(min / 60);
+    const m = Math.round(min % 60);
+    return h > 0 ? `${h}<span class="text-base font-normal"> 時 </span>${m}` : `${m}`;
+  };
+  const fmtChars = totalChars >= 1000 ? (totalChars / 1000).toFixed(1) + 'K' : String(totalChars);
+
+  const cards = [
+    { icon: '⏱️', valueHtml: fmtDur(dictMin), unit: dictMin >= 60 ? '分' : '分鐘', label: '總口述時間' },
+    { icon: '🎙️', valueHtml: fmtChars, unit: '字', label: '口述字數' },
+    { icon: '⏳', valueHtml: fmtDur(savedMin), unit: savedMin >= 60 ? '分' : '分鐘', label: '節省時間' },
+    { icon: '⚡', valueHtml: String(wpm), unit: '字/分', label: '平均口述速度' },
+  ];
+
+  return (
+    <div className="bg-gradient-to-br from-sky-50 to-indigo-50 dark:from-gray-800 dark:to-gray-800/60 rounded-2xl p-4 border border-sky-100 dark:border-gray-700 mb-3 shadow-sm">
+      <div className="grid grid-cols-2 gap-2.5">
+        {cards.map((c, i) => (
+          <div key={i} className="bg-white/80 dark:bg-gray-700/40 rounded-xl p-3.5">
+            <div className="text-lg mb-1">{c.icon}</div>
+            <div className="text-2xl font-bold text-gray-900 dark:text-white leading-none">
+              <span dangerouslySetInnerHTML={{ __html: c.valueHtml }} />
+              <span className="text-sm font-normal text-gray-400 ml-1">{c.unit}</span>
+            </div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">{c.label}</div>
+          </div>
+        ))}
+      </div>
+      <div className="text-[10px] text-gray-400 dark:text-gray-500 text-center mt-3 select-none">
+        🔒 資料只存在本機 · 聲聲慢 SpeakSlow
+      </div>
+    </div>
+  );
+};
+
 // 每日字數趨勢圖（近 14 天）
 const DailyChart = ({ data }) => {
   const today = new Date();
@@ -274,6 +318,7 @@ export const HistoryView = () => {
 
       {/* 內容區 */}
       <div className="flex-1 overflow-y-auto">
+        {!loading && stats && <ShareStats stats={stats} />}
         {!loading && stats && <StatsBanner stats={stats} />}
         {!loading && dailyStats.length > 0 && <DailyChart data={dailyStats} />}
 

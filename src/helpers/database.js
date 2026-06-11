@@ -47,6 +47,19 @@ class DatabaseManager {
       // 欄位已存在，忽略錯誤
     }
 
+    // 回填 duration：舊資料因 bug 未存口述時長，用字數估算（約 180 字/分 = 3 字/秒）。
+    // 只補 0/NULL 的列；修好後的新資料有真實 duration，不會被動到。
+    try {
+      this.db.exec(
+        `UPDATE transcriptions
+         SET duration = LENGTH(COALESCE(processed_text, text, raw_text, '')) / 3.0
+         WHERE (duration IS NULL OR duration = 0)
+           AND LENGTH(COALESCE(processed_text, text, raw_text, '')) > 0`
+      );
+    } catch (e) {
+      // 回填失敗不影響主流程
+    }
+
     // 创建设置表
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS settings (
