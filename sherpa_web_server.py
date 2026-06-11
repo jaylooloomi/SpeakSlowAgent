@@ -403,9 +403,11 @@ async def websocket_stream(websocket: WebSocket):
                 try:
                     audio_chunk = base64.b64decode(audio_b64)
 
+                    # 不論模式都累積原始音訊：停止時用離線模型重辨識整段（更準）
+                    audio_buffer.append(audio_chunk)
+
                     if sherpa and sherpa.streaming_initialized:
-                        # 串流模式：即時辨識
-                        # 將 bytes 轉換為 base64 字符串給 stream_feed
+                        # 串流模式：即時辨識（partial 僅作即時預覽）
                         feed_result = sherpa.stream_feed(session_id, audio_b64, is_final=False)
 
                         if feed_result.get("success") and feed_result.get("partial_text"):
@@ -413,61 +415,54 @@ async def websocket_stream(websocket: WebSocket):
                                 "type": "partial",
                                 "text": feed_result.get("partial_text", "")
                             })
-                    else:
-                        # 離線模式：累積音訊
-                        audio_buffer.append(audio_chunk)
 
                 except Exception as e:
                     logger.error(f"處理音訊錯誤: {e}")
 
             elif msg_type == "stop":
                 is_recording = False
+                final_text = ""
 
+                # 串流會話收尾（清理）；最終結果改用離線 Paraformer 重辨識整段，準度同桌面版
                 if sherpa and sherpa.streaming_initialized:
-                    # 串流模式：結束會話
-                    end_result = sherpa.stream_end(session_id)
-                    final_text = end_result.get("final_text", "")
-                else:
-                    # 離線模式：處理累積的音訊
-                    if audio_buffer and sherpa:
-                        # 合併音訊並辨識
-                        full_audio = b"".join(audio_buffer)
+                    try:
+                        sherpa.stream_end(session_id)
+                    except Exception as e:
+                        logger.warning(f"結束串流會話失敗: {e}")
 
-                        # 保存為臨時 WAV 文件
-                        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-                            # 簡單的 WAV header (16kHz, 16-bit, mono)
-                            import struct
-                            sample_rate = 16000
-                            num_channels = 1
-                            bits_per_sample = 16
+                # 用累積的原始音訊跑離線辨識（混合模式：串流即時預覽 + 離線精準定稿）
+                if audio_buffer and sherpa:
+                    full_audio = b"".join(audio_buffer)
 
-                            # 假設 audio_buffer 已經是 PCM 數據
-                            data_size = len(full_audio)
+                    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+                        import struct
+                        sample_rate = 16000
+                        num_channels = 1
+                        bits_per_sample = 16
+                        data_size = len(full_audio)
 
-                            f.write(b'RIFF')
-                            f.write(struct.pack('<I', 36 + data_size))
-                            f.write(b'WAVE')
-                            f.write(b'fmt ')
-                            f.write(struct.pack('<I', 16))
-                            f.write(struct.pack('<H', 1))  # PCM
-                            f.write(struct.pack('<H', num_channels))
-                            f.write(struct.pack('<I', sample_rate))
-                            f.write(struct.pack('<I', sample_rate * num_channels * bits_per_sample // 8))
-                            f.write(struct.pack('<H', num_channels * bits_per_sample // 8))
-                            f.write(struct.pack('<H', bits_per_sample))
-                            f.write(b'data')
-                            f.write(struct.pack('<I', data_size))
-                            f.write(full_audio)
-                            temp_path = f.name
+                        f.write(b'RIFF')
+                        f.write(struct.pack('<I', 36 + data_size))
+                        f.write(b'WAVE')
+                        f.write(b'fmt ')
+                        f.write(struct.pack('<I', 16))
+                        f.write(struct.pack('<H', 1))  # PCM
+                        f.write(struct.pack('<H', num_channels))
+                        f.write(struct.pack('<I', sample_rate))
+                        f.write(struct.pack('<I', sample_rate * num_channels * bits_per_sample // 8))
+                        f.write(struct.pack('<H', num_channels * bits_per_sample // 8))
+                        f.write(struct.pack('<H', bits_per_sample))
+                        f.write(b'data')
+                        f.write(struct.pack('<I', data_size))
+                        f.write(full_audio)
+                        temp_path = f.name
 
-                        try:
-                            result = sherpa.transcribe_audio(temp_path, {})
-                            final_text = result.get("text", "") if result.get("success") else ""
-                        finally:
-                            if os.path.exists(temp_path):
-                                os.remove(temp_path)
-                    else:
-                        final_text = ""
+                    try:
+                        result = sherpa.transcribe_audio(temp_path, {})
+                        final_text = result.get("text", "") if result.get("success") else ""
+                    finally:
+                        if os.path.exists(temp_path):
+                            os.remove(temp_path)
 
                 await websocket.send_json({
                     "type": "final",

@@ -19,7 +19,7 @@ import numpy as np
 # 簡轉繁轉換器
 try:
     from opencc import OpenCC
-    _opencc_converter = OpenCC('s2t')  # 簡體到繁體（僅字體轉換，不改用詞）
+    _opencc_converter = OpenCC('s2tw')  # 簡體→繁體（台灣標準字，吃不會變喫）
     logger_init = logging.getLogger(__name__)
 except ImportError:
     _opencc_converter = None
