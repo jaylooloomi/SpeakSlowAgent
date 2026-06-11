@@ -517,11 +517,28 @@ class SherpaServer:
         signal.signal(signal.SIGTERM, self._signal_handler)
         signal.signal(signal.SIGINT, self._signal_handler)
 
+    def _poc_sherpa_dir(self):
+        """模型根目錄。打包後優先用 userData/models/poc-sherpa（首次下載的位置），
+        否則用程式旁的 poc-sherpa（開發 / 後備）。"""
+        # 1) 首次下載的位置（userData/models）優先
+        user_data = os.environ.get("ELECTRON_USER_DATA")
+        if user_data:
+            cand = os.path.join(user_data, "models", "poc-sherpa")
+            if os.path.isdir(cand):
+                return cand
+        # 2) 打包的 exe：模型放在 exe 旁的 poc-sherpa（隨安裝檔附帶）
+        if getattr(sys, "frozen", False):
+            cand = os.path.join(os.path.dirname(sys.executable), "poc-sherpa")
+            if os.path.isdir(cand):
+                return cand
+        # 3) 開發 / 後備：程式旁的 poc-sherpa
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        return os.path.join(script_dir, "poc-sherpa")
+
     def _find_model_dir(self):
         """尋找 sherpa-onnx 離線模型目錄 (Paraformer)"""
-        # 優先查找項目內的 poc-sherpa 目錄
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        poc_model = os.path.join(script_dir, "poc-sherpa", "sherpa-onnx-paraformer-zh-2023-09-14")
+        # 優先查找 poc-sherpa 目錄
+        poc_model = os.path.join(self._poc_sherpa_dir(), "sherpa-onnx-paraformer-zh-2023-09-14")
         if os.path.exists(poc_model):
             return poc_model
 
@@ -536,23 +553,17 @@ class SherpaServer:
 
     def _find_streaming_model_dir(self):
         """尋找 sherpa-onnx 串流模型目錄 (Zipformer)"""
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        streaming_model = os.path.join(
-            script_dir, "poc-sherpa",
+        return os.path.join(
+            self._poc_sherpa_dir(),
             "sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20"
         )
-        if os.path.exists(streaming_model):
-            return streaming_model
-        return streaming_model  # 默認返回路徑
 
     def _find_punct_model_dir(self):
         """尋找 sherpa-onnx 標點模型目錄 (ct-transformer)"""
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        punct_model = os.path.join(
-            script_dir, "poc-sherpa",
+        return os.path.join(
+            self._poc_sherpa_dir(),
             "sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12"
         )
-        return punct_model
 
     def _signal_handler(self, signum, frame):
         logger.info(f"收到信號 {signum}，準備退出...")
@@ -564,8 +575,7 @@ class SherpaServer:
             import sherpa_onnx
 
             # 查找 VAD 模型
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            vad_model_path = os.path.join(script_dir, "poc-sherpa", "silero_vad.onnx")
+            vad_model_path = os.path.join(self._poc_sherpa_dir(), "silero_vad.onnx")
 
             if not os.path.exists(vad_model_path):
                 logger.warning(f"Silero VAD 模型不存在: {vad_model_path}，將跳過 VAD")
@@ -678,8 +688,7 @@ class SherpaServer:
         if getattr(self, "whisper_recognizer", None) is not None:
             return self.whisper_recognizer
         import sherpa_onnx
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        wdir = os.path.join(script_dir, "poc-sherpa", "sherpa-onnx-whisper-small")
+        wdir = os.path.join(self._poc_sherpa_dir(), "sherpa-onnx-whisper-small")
         encoder = os.path.join(wdir, "small-encoder.int8.onnx")
         decoder = os.path.join(wdir, "small-decoder.int8.onnx")
         tokens = os.path.join(wdir, "small-tokens.txt")

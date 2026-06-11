@@ -53,6 +53,17 @@ class SherpaManager {
     }
   }
 
+  getBundledServerExe() {
+    // 打包後的 PyInstaller 後端（resources/sherpa-backend/sherpa_server.exe）。
+    // 開發時這個路徑不存在 → 自動退回用 Python 跑 sherpa_server.py。
+    if (process.platform !== "win32") return null;
+    return path.join(
+      process.resourcesPath,
+      "sherpa-backend",
+      "sherpa_server.exe"
+    );
+  }
+
   getEmbeddedPythonPath() {
     // 獲取嵌入式 Python 路徑
     const isDevelopment =
@@ -461,25 +472,45 @@ class SherpaManager {
     try {
       this.logger.info && this.logger.info("啟動 Sherpa 服務器...");
 
-      const status = await this.checkSherpaInstallation();
-      if (!status.installed) {
-        this.logger.warn &&
-          this.logger.warn("Sherpa-ONNX 未安裝，跳過服務器啟動");
-        return;
+      // 打包的 sherpa_server.exe 自帶 sherpa-onnx，免檢查系統 Python。
+      const _bundled = this.getBundledServerExe();
+      if (!(_bundled && fs.existsSync(_bundled))) {
+        const status = await this.checkSherpaInstallation();
+        if (!status.installed) {
+          this.logger.warn &&
+            this.logger.warn("Sherpa-ONNX 未安裝，跳過服務器啟動");
+          return;
+        }
       }
 
-      const pythonCmd = await this.findPythonExecutable();
-      const serverPath = this.getSherpaServerPath();
+      // 打包後優先用 PyInstaller 的 sherpa_server.exe（免 Python）；開發退回 Python 腳本。
+      const bundledExe = this.getBundledServerExe();
+      const useBundled = bundledExe && fs.existsSync(bundledExe);
+
+      let command;
+      let baseArgs;
+      let serverPath;
+      if (useBundled) {
+        command = bundledExe;
+        baseArgs = [];
+        serverPath = bundledExe;
+      } else {
+        command = await this.findPythonExecutable();
+        serverPath = this.getSherpaServerPath();
+        baseArgs = [serverPath];
+      }
+
       this.logger.info &&
         this.logger.info("Sherpa 服務器配置", {
-          pythonCmd,
+          mode: useBundled ? "bundled-exe" : "python-script",
+          command,
           serverPath,
           serverExists: fs.existsSync(serverPath),
         });
 
       if (!fs.existsSync(serverPath)) {
         this.logger.error &&
-          this.logger.error("Sherpa 服務器腳本未找到，跳過服務器啟動", {
+          this.logger.error("Sherpa 服務器未找到，跳過服務器啟動", {
             serverPath,
           });
         return;
@@ -492,8 +523,8 @@ class SherpaManager {
         const modelPath = this.getModelCachePath();
 
         this.serverProcess = spawn(
-          pythonCmd,
-          [serverPath, "--model-dir", modelPath],
+          command,
+          [...baseArgs, "--model-dir", modelPath],
           {
             stdio: ["pipe", "pipe", "pipe"],
             windowsHide: true,

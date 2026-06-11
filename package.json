@@ -12,20 +12,10 @@
     "build": "cd src && vite build && cd .. && electron-builder",
     "postinstall": "electron-builder install-app-deps",
     "build:renderer": "cd src && vite build",
-    "prepare:python": "pip install funasr modelscope torch torchaudio librosa numpy && python download_models.py",
-    "prepare:python:uv": "uv sync && uv run python download_models.py",
-    "prepare:python:embedded": "node scripts/prepare-embedded-python.js",
-    "prepare:python:info": "node scripts/prepare-embedded-python.js --info",
-    "test:python": "node scripts/test-embedded-python.js",
-    "test:python:info": "node scripts/test-embedded-python.js --info",
-    "prebuild:mac": "npm run prepare:python:embedded && npm run build:renderer",
-    "build:mac": "electron-builder --mac",
-    "prebuild:win": "npm run prepare:python:embedded && npm run build:renderer",
+    "prepare:python": "pip install sherpa-onnx numpy opencc pyinstaller && python download_all_models.py",
+    "build:backend": "python -m PyInstaller --onedir --noconfirm --clean --collect-all sherpa_onnx --collect-all opencc --distpath build_pyi/dist --workpath build_pyi/work --specpath build_pyi sherpa_server.py",
     "build:win": "electron-builder --win",
-    "prebuild:linux": "npm run prepare:python:embedded && npm run build:renderer",
-    "build:linux": "electron-builder --linux",
-    "pack": "npm run build:renderer && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir",
-    "dist": "npm run prepare:python:embedded && npm run build:renderer && electron-builder",
+    "dist:win": "npm run build:backend && npm run build:renderer && electron-builder --win",
     "lint": "cd src && eslint .",
     "preview": "cd src && vite preview",
     "clean": "node cleanup.js && rm -rf python"
@@ -120,27 +110,39 @@
     "files": [
       "main.js",
       "preload.js",
-      "funasr_server.py",
-      "download_models.py",
+      "sherpa_server.py",
       "package.json",
-      "python/**/*",
       "node_modules/**/*",
       "src/dist/**/*",
       "src/helpers/**/*",
       "src/utils/**/*",
       "assets/**/*",
       "!node_modules/.cache/**/*",
-      "!src/node_modules/**/*",
-      "!python/**/*.pyc",
-      "!python/**/__pycache__/**/*"
+      "!src/node_modules/**/*"
     ],
     "asarUnpack": [
-      "funasr_server.py",
-      "download_models.py",
-      "python/**/*",
+      "sherpa_server.py",
       "node_modules/**/*ffmpeg-static*/**/*",
       "node_modules/**/*better-sqlite3*/**/*",
       "node_modules/**/*bindings*/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "build_pyi/dist/sherpa_server",
+        "to": "sherpa-backend"
+      },
+      {
+        "from": "poc-sherpa/sherpa-onnx-paraformer-zh-2023-09-14",
+        "to": "sherpa-backend/poc-sherpa/sherpa-onnx-paraformer-zh-2023-09-14"
+      },
+      {
+        "from": "poc-sherpa/sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12",
+        "to": "sherpa-backend/poc-sherpa/sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12"
+      },
+      {
+        "from": "poc-sherpa/silero_vad.onnx",
+        "to": "sherpa-backend/poc-sherpa/silero_vad.onnx"
+      }
     ],
     "mac": {
       "category": "public.app-category.productivity",
@@ -154,7 +156,17 @@
       }
     },
     "win": {
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.ico",
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "聲聲慢"
     },
     "linux": {
       "icon": "assets/icon.png",
