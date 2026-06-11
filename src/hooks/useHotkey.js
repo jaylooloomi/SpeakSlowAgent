@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 /**
  * 热键管理Hook
@@ -10,41 +10,8 @@ export const useHotkey = () => {
   const [isRegistered, setIsRegistered] = useState(false);
   const registeredHotkeyRef = useRef(null); // 跟踪已注册的热键
 
-  // 获取当前热键
-  useEffect(() => {
-    const getCurrentHotkey = async () => {
-      try {
-        if (window.electronAPI) {
-          const currentHotkey = await window.electronAPI.getCurrentHotkey();
-          if (currentHotkey) {
-            setHotkey(currentHotkey);
-          }
-        }
-      } catch (error) {
-        if (window.electronAPI && window.electronAPI.log) {
-          window.electronAPI.log('warn', '获取当前热键失败:', error);
-        }
-      }
-    };
-
-    getCurrentHotkey();
-
-    // 監聽快捷鍵變更事件（來自主進程的跨視窗通知）
-    let unsubscribe = null;
-    if (window.electronAPI && window.electronAPI.onHotkeyChanged) {
-      unsubscribe = window.electronAPI.onHotkeyChanged((data) => {
-        if (data && data.actionId === 'toggle-recording' && data.accelerator) {
-          setHotkey(data.accelerator);
-        }
-      });
-    }
-
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
-  }, []);
+  // 錄音熱鍵已統一固定為「右 Alt」（TypeLess），不再從設定動態載入覆蓋顯示。
+  // （舊邏輯會抓「目前註冊的快捷鍵」，移除 toggle-recording 後會誤抓到 Escape 等）
 
   // 移除F2双击相关的复杂逻辑，专注于传统热键
 
