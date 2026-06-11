@@ -971,7 +971,7 @@ export default function App() {
   const micProps = getMicButtonProps();
 
   return (
-    <div className="h-screen bg-gradient-to-br from-slate-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4 rounded-3xl overflow-hidden">
+    <div className="h-screen bg-gradient-to-br from-slate-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 px-4 pt-4 pb-2 rounded-3xl overflow-hidden">
       {/* 主界面 */}
       <div className="max-w-2xl mx-auto h-full flex flex-col">
         {/* 标题栏 */}
@@ -1148,8 +1148,8 @@ export default function App() {
           />
         </div>
 
-        {/* 底部置中標記 */}
-        <div className="text-center pt-2 flex-shrink-0 select-none">
+        {/* 底部置中標記（貼底）*/}
+        <div className="text-center pt-1.5 flex-shrink-0 select-none">
           <span className="text-[11px] tracking-wide text-gray-400 dark:text-gray-600">
             聲聲慢 · by 切版職人
           </span>
