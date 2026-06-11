@@ -939,6 +939,14 @@ export default function App() {
     };
   }, [typelessMode, isRecordingNormal, isRecordingProcessingNormal, modelStatus.isReady, startRecordingNormal, stopRecordingNormal, cancelRecordingNormal, showNotification]);
 
+  // 載入時把 TypeLess 切換狀態強制重置為「未錄音」，
+  // 避免重載/HMR/崩潰後主進程 isActive 與前端脫鉤（按鍵 off-by-one）。
+  useEffect(() => {
+    if (window.electronAPI?.syncTypelessState) {
+      window.electronAPI.syncTypelessState(false);
+    }
+  }, []);
+
   // 同步录音状态到热键管理器
   useEffect(() => {
     if (syncRecordingState) {
