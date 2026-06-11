@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 import { toast, Toaster } from "sonner";
-import { Settings, Save, Eye, EyeOff, X, Loader2, TestTube, CheckCircle, XCircle, Mic, Shield, Globe, Keyboard, Sparkles, BookText, Tag, History } from "lucide-react";
+import { Settings, Save, Eye, EyeOff, X, Loader2, TestTube, CheckCircle, XCircle, Mic, Shield, Globe, Keyboard, Sparkles, BookText, Tag, History, Info, Heart } from "lucide-react";
 import { usePermissions } from "./hooks/usePermissions";
 import PermissionCard from "./components/ui/permission-card";
 import HotkeySettings from "./components/HotkeySettings";
@@ -20,6 +20,7 @@ const SETTINGS_TABS = [
   { id: 'hotwords', label: '熱詞', icon: Tag },
   { id: 'dictionary', label: '字典', icon: BookText },
   { id: 'permissions', label: '權限管理', icon: Shield },
+  { id: 'about', label: '關於', icon: Info },
 ];
 
 const SettingsPage = () => {
@@ -1057,6 +1058,41 @@ const SettingsPage = () => {
               </div>
             </div>
           </div>
+            )}
+
+            {activeTab === 'about' && (
+            <div className="space-y-4 max-w-xl">
+              {/* 專案 */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-5 text-center">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  聲聲慢 <span className="text-base font-normal text-gray-400">SpeakSlow</span>
+                </h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">給開發者的中文語音輸入 · 本地、免費、隱私</p>
+                <p className="text-[11px] text-gray-400 mt-2">v1.0.0 · Apache License 2.0</p>
+              </div>
+
+              {/* 作者 */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-5">
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">作者</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">由 <strong>切版職人</strong> 開發維護。</p>
+                <a href="https://github.com/Jeffrey0117/speakslow" target="_blank" rel="noreferrer"
+                   className="inline-block text-xs text-blue-500 hover:underline mt-2">
+                  GitHub · Jeffrey0117/speakslow
+                </a>
+              </div>
+
+              {/* 致謝 */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-5">
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-1.5">
+                  <Heart className="w-4 h-4 text-red-400" /> 致謝
+                </h3>
+                <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-2 leading-relaxed">
+                  <li>• <a href="https://github.com/yan5xu/ququ" target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">ququ (yan5xu)</a> — 原始專案，本專案在其基礎上改用 sherpa-onnx 引擎並重做 UI 與互動。</li>
+                  <li>• <a href="https://github.com/k2-fsa/sherpa-onnx" target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">sherpa-onnx (k2-fsa)</a> — 本地語音辨識引擎。</li>
+                  <li>• <a href="https://wisprflow.ai/" target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">Wispr Flow</a> — 產品概念啟發。</li>
+                </ul>
+              </div>
+            </div>
             )}
           </div>
         </div>

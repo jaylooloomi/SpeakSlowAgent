@@ -112,7 +112,7 @@ npm run dev
 
 ## 🙏 致謝
 
-- [SpeakSlow (yan5xu/speakslow)](https://github.com/yan5xu/speakslow) — 原始專案，本專案在其基礎上改用 sherpa-onnx 引擎並重做 UI 與互動。
+- [ququ (yan5xu/ququ)](https://github.com/yan5xu/ququ) — 原始專案，本專案在其基礎上改用 sherpa-onnx 引擎並重做 UI 與互動。
 - [sherpa-onnx (k2-fsa)](https://github.com/k2-fsa/sherpa-onnx) — 本地語音辨識引擎。
 - [Wispr Flow](https://wisprflow.ai/) — 產品概念的啟發。
 
