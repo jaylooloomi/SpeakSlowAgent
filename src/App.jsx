@@ -850,18 +850,20 @@ export default function App() {
     if (!window.electronAPI || !typelessMode) return;
 
     // 監聽 TypeLess 開始錄音事件
+    // Typeless 一律使用離線辨識路徑（startRecordingNormal），不受串流模式影響，
+    // 因此即使串流模型未下載/串流模式開啟，按住說話依然可用。
     const unsubscribeStart = window.electronAPI.onTypelessStartRecording?.(() => {
       console.log('TypeLess: 收到開始錄音事件');
-      if (!isRecording && !isRecordingProcessing && modelStatus.isReady) {
-        startRecording();
+      if (!isRecordingNormal && !isRecordingProcessingNormal && modelStatus.isReady) {
+        startRecordingNormal();
       }
     });
 
     // 監聽 TypeLess 停止錄音事件
     const unsubscribeStop = window.electronAPI.onTypelessStopRecording?.(() => {
       console.log('TypeLess: 收到停止錄音事件');
-      if (isRecording) {
-        stopRecording();
+      if (isRecordingNormal) {
+        stopRecordingNormal();
       }
     });
 
@@ -869,7 +871,7 @@ export default function App() {
       if (unsubscribeStart) unsubscribeStart();
       if (unsubscribeStop) unsubscribeStop();
     };
-  }, [typelessMode, isRecording, isRecordingProcessing, modelStatus.isReady, startRecording, stopRecording]);
+  }, [typelessMode, isRecordingNormal, isRecordingProcessingNormal, modelStatus.isReady, startRecordingNormal, stopRecordingNormal]);
 
   // 同步录音状态到热键管理器
   useEffect(() => {
