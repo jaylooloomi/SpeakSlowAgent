@@ -4,111 +4,109 @@
 
 # 聲聲慢 (SpeakSlow)
 
-### 讓每一個字，都被聽見 — 專為中文打造、最快的本地語音輸入
+### 讓每一個字，都被聽見
 
-**用講的取代打字，超快超準。特別適合用語音跟 AI 對話（ChatGPT / Claude / Cursor），講完馬上送出。開源、100% 本地、免費。**
+**專為中文打造、最快的本地語音輸入 — 用講的取代打字，講完直接送給 AI。**
 
 <img src="https://img.shields.io/badge/license-Apache_2.0-blue.svg" alt="License">
 <img src="https://img.shields.io/badge/platform-Windows-0078D6" alt="Platform">
 <img src="https://img.shields.io/badge/ASR-sherpa--onnx-orange" alt="ASR">
 <img src="https://img.shields.io/badge/100%25-local-success" alt="Local">
-<img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome">
+
+🌐 **[官方網站 / 介紹頁](https://jeffrey0117.github.io/speakslow/)**
 
 </div>
 
 <br/>
 
-> 按一下 **右 Alt / 右 Ctrl** → 講中文 → 文字**自動貼到你游標所在的位置**。終端機、記事本、Cursor、Claude Code、Chrome 輸入框都行。語音辨識**完全在你電腦本地運行**，一個字都不上雲。
+> 按一下 **右 Alt / 右 Ctrl** → 講中文 → 文字**自動貼到你游標所在的位置**。
+> 語音辨識**完全在你電腦本地運行**，一個字都不上雲。
 
-<!-- 👇 之後放一段 Demo GIF：右 Ctrl → 講中文 → 文字打進 Cursor -->
-<div align="center">
-  <em>（Demo GIF 施工中）</em>
-</div>
+<div align="center"><em>（Demo 影片施工中）</em></div>
 
 <br/>
 
-## 🎯 為誰而做
+## ✨ 它能做什麼
 
-- **AI 編程（vibe coding）的人** — 用 Cursor / Claude Code / Copilot 時，**用講的比打字快**。中文口述需求、貼上、繼續寫 code，手不離開節奏。
-- **中文使用者** — 專為中文優化的本地辨識，比通用聽寫準。
+### 🎙️ 又快又準的本地辨識
+- **本地** sherpa-onnx **Paraformer（int8、非自回歸）** —— 講完約 **0.3 秒**貼上
+- **為中文 / 台灣優化**：簡轉繁用台灣標準字（「吃」不是「喫」）；中英混用（晶晶體）英文保留原文、不亂翻
+- **長音訊不幻聽**：超過 15 秒自動用 VAD 分段辨識，講一大段也完整
+- **熱詞 / 自訂字典**：提升人名、產品、術語等專有名詞的準確度
 
-## 🆚 為什麼不用現成的？
+### 🧹 乾淨的輸出（以下全部**不需要 AI**、純本地規則）
+- **自動標點**：依語意 + 句末語助詞（嗎 → ？、啊 → ！）
+- **去口吃贅字**：刪掉「呃、嗯、那個、然後…」，但保留正常疊字（慢慢、謝謝）
+- **全形英文 → 半形**：`ｈｅｌｌｏ` → `hello`
+- **規則式列點排版**：講「第一…第二…第三…」自動變成 `1. 2. 3.` 清單、引言補冒號
+- **停頓斷行**：用逐字時間戳偵測你講話的**停頓**，在自然換氣處自動換行（真正的韻律斷句）
 
-| | 🎯 聲聲慢 | 🪟 Windows 內建語音輸入 | 💰 Wispr Flow |
-|---|---|---|---|
-| **處理位置** | ✅ **本地** | ❌ 雲端（微軟伺服器）| ❌ 雲端 |
-| **隱私** | ✅ 語音不外流 | ❌ 上傳語音 | ❌ 上傳語音 |
-| **價格** | ✅ 開源免費 | （系統內建）| ❌ $12/月 |
-| **中文優化** | ✅ 專門 | ⚠️ 通用 | ⚠️ 通用 |
-| **AI 潤飾 / 排版 / 校稿** | ✅ 可接（甚至本地 LLM）| ❌ 無 | ⚠️ 部分 |
-| **熱詞 / 字典** | ✅ | ❌ | ⚠️ |
-| **離線可用** | ✅ | ❌ | ❌ |
+### ⌨️ 順手的互動
+- **右 Alt / 右 Ctrl 一鍵切換**：按一下開始、再按一下停止並貼上；錄音中 `Esc` 取消（瀏覽器裡用右 Ctrl 避開選單）
+- **貼到游標處、不污染剪貼簿**：貼上後自動還原你原本的剪貼簿內容
+- **面板一鍵 AI 開關**：不需要潤飾時直接關掉，省 API、要時再開
 
-## 🔒 100% 本地，連 AI 潤飾都能不上雲
+### 🤖 AI 文字優化（可選 — 要更強再開）
+- 接任何**相容 OpenAI** 的服務：DeepSeek / Gemini / OpenAI，或**本地 Ollama（全離線、免 API key）**
+- 內建為**台灣口語**調校的 prompt：潤飾、糾錯、整理排版
+- 一鍵預設，填上 key 即用
 
-語音辨識本來就在本地。更進一步：AI 潤飾走**相容 OpenAI 的介面**，你可以把它指向**本機的 Ollama / LM Studio**（跑在你自己的顯卡上）——
+### 📊 數據與歷史
+- **可分享的數據儀表板**：總口述時間、口述字數、節省時間、平均速度（截圖就能炫耀）
+- **每日字數趨勢圖**
+- **完整歷史**：搜尋、統計、匯出
+- **錄音永久保存**：辨識不滿意可**一鍵重新辨識**，甚至用 **Whisper** 換更強的模型重辨
 
-> **講話 → 辨識 → AI 潤稿，整條鏈都在你電腦裡，什麼都不離開。** 免費、免 API key、離線可用。
+## 🔒 隱私：100% 本地，聲音不外流
 
-## ✨ 特色
+語音辨識在**你自己的電腦**跑，**聲音不上傳任何伺服器**。
+更進一步：AI 潤飾也能接**本機的 Ollama / LM Studio**（跑在你自己的顯卡上）—— 整條「講話 → 辨識 → 潤稿」都在本地，什麼都不離開你電腦。
+你的歷史與錄音存在本機資料庫，跟程式碼分開，**不會被開源出去**。
 
-- 🎙️ **右 Alt / 右 Ctrl 一鍵切換** — 按一下開始、再按一下停止並貼上；錄音中按 `Esc` 取消。（瀏覽器裡用右 Ctrl 避開選單）
-- ⚡ **極速本地辨識** — sherpa-onnx **Paraformer（int8、非自回歸）**，講完約 0.3 秒貼上。
-- 🧠 **長音訊不幻聽** — 自動用 VAD 把長語音分段辨識，講一大段也完整。
-- 📋 **貼到游標處、不污染剪貼簿** — 貼上後自動還原你原本的剪貼簿。
-- 🈶 **自動標點 + 口語清理** — 去口吃疊字、補標點、全形英文轉半形。
-- 🤖 **AI 潤飾 / 校稿 / 排版（可選）** — 接任何相容 OpenAI 的 API 或**本地 LLM**。
-- 🎯 **精準重辨（Whisper）** — 對英文/難句不滿意？歷史一鍵用 Whisper 重新辨識。
-- 🔤 **熱詞 / 字典** — 提升專有名詞、自動校正常錯詞。
-- 🕘 **歷史紀錄** — 保存原始錄音，隨時重新辨識；搜尋、統計、匯出。
+## 🚀 快速開始
 
-## 🚀 快速開始（開發）
+> 📦 一鍵安裝檔（.exe）施工中 —— 之後不用裝 Python / Node 也能用。
 
-需求：**Node.js 18+**、**Python 3.x**
+開發者從原始碼執行（需 **Node.js 18+**、**Python 3.x**）：
 
 ```bash
-# 1. 取得專案
 git clone https://github.com/Jeffrey0117/speakslow.git
 cd speakslow
 
-# 2. Node 依賴
+# Node 依賴
 npm install
-npx electron-builder install-app-deps   # 原生模組的 Electron 預編譯檔
+npx electron-builder install-app-deps
 
-# 3. Python 環境 + sherpa-onnx
+# Python 環境 + sherpa-onnx
 python -m venv .venv
 .venv/Scripts/python.exe -m pip install sherpa-onnx numpy opencc
 
-# 4. 下載模型（離線辨識 + 標點 + 串流 + VAD）
+# 下載模型（離線辨識 + 標點 + 串流 + VAD）
 .venv/Scripts/python.exe download_all_models.py
 
-# 5. 啟動
+# 啟動
 npm run dev
 ```
 
 > 模型檔較大（約 250MB～），已在 `.gitignore` 排除，需執行 `download_all_models.py` 下載。
-> 📦 一鍵安裝檔（.exe）施工中 — 之後不用裝 Python/Node 也能用。
 
 ## 🛠️ 技術棧
 
-- **前端**：React 19、Tailwind CSS、Vite
-- **桌面端**：Electron
-- **語音辨識（本地）**：[sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) — Paraformer（離線）、Zipformer（串流）、Whisper（精準）、Silero VAD、ct-transformer（標點）
-- **資料庫**：better-sqlite3
-- **全域熱鍵**：uiohook-napi
+- **前端**：React 19、Tailwind CSS、Vite ｜ **桌面端**：Electron
+- **語音辨識（本地）**：[sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) — Paraformer（離線）、Whisper（精準）、Silero VAD、ct-transformer（標點）、Zipformer（串流）
+- **資料庫**：better-sqlite3 ｜ **全域熱鍵**：uiohook-napi
 
 ## 🗺️ Roadmap
 
 - [ ] 一鍵 Windows 安裝檔（.exe）
-- [ ] AI 寫作模式（潤飾 / 排版 / 校稿 / 摘要）
 - [ ] 內建本地 LLM 一鍵設定
-- [ ] Web / API 服務（讓其他專案共用本機辨識）
+- [ ] 用音量/音高判斷問號、驚嘆號（韻律標點）
 
-> 目前**專注 Windows**。
+> 目前**專注 Windows 與中文使用場景**。
 
 ## 🤝 貢獻
 
-歡迎 issue / PR！這是個給中文開發者的工具，你的回饋就是方向。
+歡迎 issue / PR！這是給中文使用者的工具，你的回饋就是方向。
 
 ## 🙏 致謝
 
