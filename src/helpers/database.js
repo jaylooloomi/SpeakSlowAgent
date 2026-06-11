@@ -355,6 +355,25 @@ class DatabaseManager {
     };
   }
 
+  // 每日字數/次數（按本地日期分組，供趨勢圖用）
+  getDailyStats(days = 14) {
+    const stmt = this.db.prepare(`
+      SELECT
+        date(created_at, 'localtime') as day,
+        COUNT(*) as count,
+        COALESCE(SUM(LENGTH(COALESCE(processed_text, text, raw_text, ''))), 0) as chars
+      FROM transcriptions
+      WHERE created_at >= datetime('now', '-' || ? || ' days')
+      GROUP BY day
+      ORDER BY day ASC
+    `);
+    return stmt.all(days).map(r => ({
+      day: r.day,
+      count: Number(r.count) || 0,
+      chars: Number(r.chars) || 0
+    }));
+  }
+
   setSetting(key, value) {
     const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO settings (key, value, updated_at) 

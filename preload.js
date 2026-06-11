@@ -58,6 +58,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("get-transcriptions", limit, offset),
   getTranscriptionStats: () =>
     ipcRenderer.invoke("get-transcription-stats"),
+  getDailyStats: (days) =>
+    ipcRenderer.invoke("get-daily-stats", days),
   deleteTranscription: (id) =>
     ipcRenderer.invoke("delete-transcription", id),
   retranscribeTranscription: (id, options) =>

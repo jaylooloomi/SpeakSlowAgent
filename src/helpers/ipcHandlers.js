@@ -216,6 +216,10 @@ class IPCHandlers {
       return this.databaseManager.getTranscriptionStats();
     });
 
+    ipcMain.handle("get-daily-stats", (event, days) => {
+      return this.databaseManager.getDailyStats(days || 14);
+    });
+
     ipcMain.handle("clear-all-transcriptions", () => {
       return this.databaseManager.clearAllTranscriptions();
     });

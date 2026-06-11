@@ -64,6 +64,51 @@ const StatsBanner = ({ stats }) => {
   );
 };
 
+// 每日字數趨勢圖（近 14 天）
+const DailyChart = ({ data }) => {
+  const today = new Date();
+  const days = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const found = (data || []).find((x) => x.day === key);
+    days.push({ label: `${d.getMonth() + 1}/${d.getDate()}`, chars: found?.chars || 0 });
+  }
+  const max = Math.max(...days.map((d) => d.chars), 1);
+  const totalRange = days.reduce((s, d) => s + d.chars, 0);
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-xl p-3.5 shadow-sm border border-gray-200 dark:border-gray-700 mb-3">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-gray-600 dark:text-gray-300">每日字數・近 14 天</span>
+        <span className="text-[11px] text-gray-400">合計 {totalRange.toLocaleString()} 字</span>
+      </div>
+      <div className="flex items-end gap-[3px] h-20">
+        {days.map((d, i) => (
+          <div
+            key={i}
+            className="flex-1 flex flex-col justify-end h-full group relative"
+            title={`${d.label}：${d.chars.toLocaleString()} 字`}
+          >
+            <div
+              className="w-full rounded-t bg-sky-400/80 dark:bg-sky-500/70 group-hover:bg-sky-500 transition-colors"
+              style={{ height: `${(d.chars / max) * 100}%`, minHeight: d.chars > 0 ? '3px' : '0' }}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-[3px] mt-1">
+        {days.map((d, i) => (
+          <div key={i} className="flex-1 text-center text-[9px] text-gray-400 dark:text-gray-500">
+            {i % 2 === 1 ? d.label : ''}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 /**
  * 歷史紀錄內容（自帶翻譯與複製），可嵌入任何容器（設定分頁、獨立視窗）。
  */
@@ -74,6 +119,7 @@ export const HistoryView = () => {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [filteredTranscriptions, setFilteredTranscriptions] = React.useState([]);
   const [stats, setStats] = React.useState(null);
+  const [dailyStats, setDailyStats] = React.useState([]);
 
   const handleCopy = async (text) => {
     try {
@@ -96,13 +142,15 @@ export const HistoryView = () => {
     if (!window.electronAPI) return;
     setLoading(true);
     try {
-      const [result, statsResult] = await Promise.all([
+      const [result, statsResult, dailyResult] = await Promise.all([
         window.electronAPI.getTranscriptions(100, 0),
-        window.electronAPI.getTranscriptionStats()
+        window.electronAPI.getTranscriptionStats(),
+        window.electronAPI.getDailyStats?.(14) ?? Promise.resolve([])
       ]);
       setTranscriptions(result || []);
       setFilteredTranscriptions(result || []);
       setStats(statsResult);
+      setDailyStats(dailyResult || []);
     } catch (error) {
       console.error("載入歷史紀錄失敗:", error);
     } finally {
@@ -227,6 +275,7 @@ export const HistoryView = () => {
       {/* 內容區 */}
       <div className="flex-1 overflow-y-auto">
         {!loading && stats && <StatsBanner stats={stats} />}
+        {!loading && dailyStats.length > 0 && <DailyChart data={dailyStats} />}
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
