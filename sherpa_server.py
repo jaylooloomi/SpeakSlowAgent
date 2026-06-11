@@ -218,7 +218,7 @@ def format_lists(text):
     markers = []
     for m in re.finditer(r'第([一二三四五六七八九十兩两])', text):
         after = text[m.end():m.end() + 1]
-        if after == '次':  # 第一次/第二次 = 次數，非列點
+        if after in '次名':  # 第一次=次數、第一名=名次，都不是列點
             continue
         markers.append((m, m.group(1)))
     if len(markers) < 2 or markers[0][1] != '一':
@@ -230,8 +230,12 @@ def format_lists(text):
         start = m.end()
         end = markers[i + 1][0].start() if i + 1 < len(markers) else len(text)
         seg = text[start:end]
-        # 去掉項目開頭的量詞/連接詞（第一「個」是、第一「，」…）
-        seg = re.sub(r'^[個个位種种類类條条項项點点步名是為为來来，,、：:。　\s]+', '', seg)
+        # 去掉項目開頭的「量詞(+名詞)」與連接詞：第一「件事情，」/「個是」/「點，」/「，」…
+        seg = re.sub(
+            r'^(?:[個个件位種种項项條条張张份步點点] ?)?'
+            r'(?:事情|事兒|事儿|事|東西|东西|原因|問題|问题|地方|方面|步驟|步骤)?'
+            r'(?:是|為|为|要|就是)?[，,、：:。　\s]*',
+            '', seg)
         seg = seg.strip().rstrip('。，,、；;　 ')
         if seg:
             items.append(seg)
