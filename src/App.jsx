@@ -201,19 +201,23 @@ const TextDisplay = React.memo(({ originalText, processedText, onCopy, t }) => {
   }
 
   return (
-    <div className="relative bg-white/90 dark:bg-gray-800/90 rounded-xl p-4 pr-12 shadow-md border border-gray-200/70 dark:border-gray-700/60">
-      {/* 右上角複製按鈕 */}
-      <button
-        onClick={() => onCopy(displayText)}
-        className="absolute top-3 right-3 p-1.5 hover:bg-slate-200/70 dark:hover:bg-gray-700/70 rounded-md transition-colors"
-        title={t ? t('app.copy') : "複製文字"}
-      >
-        <Copy className="w-4 h-4 text-slate-500 dark:text-gray-400" />
-      </button>
+    <div className="fade-in">
+      {/* 複製按鈕：移到文字卡片上方，文字區塊不再留右側空白 */}
+      <div className="flex justify-end mb-1">
+        <button
+          onClick={() => onCopy(displayText)}
+          className="p-1.5 hover:bg-slate-200/70 dark:hover:bg-gray-700/70 rounded-md transition-colors"
+          title={t ? t('app.copy') : "複製文字"}
+        >
+          <Copy className="w-4 h-4 text-slate-500 dark:text-gray-400" />
+        </button>
+      </div>
 
-      <p className="chinese-content text-gray-800 dark:text-gray-200 leading-relaxed fade-in">
-        {displayText}
-      </p>
+      <div className="bg-white/90 dark:bg-gray-800/90 rounded-xl p-4 shadow-md border border-gray-200/70 dark:border-gray-700/60">
+        <p className="chinese-content text-gray-800 dark:text-gray-200 leading-relaxed">
+          {displayText}
+        </p>
+      </div>
     </div>
   );
 });

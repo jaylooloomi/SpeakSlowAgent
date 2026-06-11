@@ -176,17 +176,15 @@ html, body {
 /* 录音按钮动画 */
 @keyframes pulse-recording {
   0%, 100% {
-    opacity: 1;
-    transform: scale(1);
+    transform: scale(1) translateY(0);
   }
   50% {
-    opacity: 0.8;
-    transform: scale(1.05);
+    transform: scale(1.12) translateY(-2px);
   }
 }
 
 .recording-pulse {
-  animation: pulse-recording 1.5s ease-in-out infinite;
+  animation: pulse-recording 1s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
 }
 
 /* 串流模式錄音指示器 - 黃色外圈 */
@@ -278,18 +276,18 @@ html, body {
 @keyframes recording-glow {
   0%, 100% {
     box-shadow:
-      0 0 0 0 rgba(239, 68, 68, 0.4),
-      0 4px 15px rgba(0, 0, 0, 0.2);
+      0 0 0 0 rgba(239, 68, 68, 0.55),
+      0 8px 24px rgba(0, 0, 0, 0.28);
   }
   50% {
     box-shadow:
-      0 0 0 12px rgba(239, 68, 68, 0),
-      0 4px 20px rgba(0, 0, 0, 0.3);
+      0 0 0 18px rgba(239, 68, 68, 0),
+      0 8px 28px rgba(0, 0, 0, 0.32);
   }
 }
 
 .recording-glow {
-  animation: recording-glow 2s ease-in-out infinite;
+  animation: recording-glow 1.4s ease-out infinite;
 }
 
 /* 處理中狀態動畫 */
