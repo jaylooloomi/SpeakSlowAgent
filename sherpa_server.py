@@ -574,7 +574,7 @@ class SherpaServer:
             # 獲取語音段
             speech_segments = []
             while not self.vad.empty():
-                segment = self.vad.front()
+                segment = self.vad.front
                 speech_segments.append(segment)
                 self.vad.pop()
 
@@ -627,7 +627,7 @@ class SherpaServer:
             self.vad.flush()
             segs = []
             while not self.vad.empty():
-                segs.append(np.array(self.vad.front().samples, dtype=np.float32))
+                segs.append(np.array(self.vad.front.samples, dtype=np.float32))
                 self.vad.pop()
             return segs if segs else None
         except Exception as e:
