@@ -10,8 +10,6 @@ export default function DualDisplayPage() {
   const [state, setState] = useState<RecordingState>('idle')
   const [isFullscreen, setIsFullscreen] = useState(false)
   const recordingRef = useRef(false) // 音訊回呼即時讀取（避免 stale closure）
-  const topScrollRef = useRef<HTMLDivElement>(null)
-  const bottomScrollRef = useRef<HTMLDivElement>(null)
 
   const {
     isConnected,
@@ -54,11 +52,12 @@ export default function DualDisplayPage() {
     ? `${finalText}${finalText ? '\n' : ''}${partialText}`
     : finalText
 
-  // 文字變多時自動捲到底，最新內容永遠可見（舊的往上消失）
-  useEffect(() => {
-    if (topScrollRef.current) topScrollRef.current.scrollTop = topScrollRef.current.scrollHeight
-    if (bottomScrollRef.current) bottomScrollRef.current.scrollTop = bottomScrollRef.current.scrollHeight
-  }, [displayText])
+  // 字幕模式：只保留最近 1~2 句（看過的舊句直接淡出消失，不塞滿畫面）
+  const recentSentences = displayText
+    .split(/(?<=[。！？!?\n])/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(-2)
 
   const error = wsError || recorderError
 
@@ -107,6 +106,29 @@ export default function DualDisplayPage() {
     processing: '處理中...',
   }[state]
 
+  // 字幕內容：最近 2 句，最新清晰、上一句淡化（共用於上下兩半）
+  const Subtitle = () =>
+    recentSentences.length ? (
+      <div className="w-full max-w-4xl mx-auto space-y-1">
+        {recentSentences.map((s, i) => {
+          const isNewest = i === recentSentences.length - 1
+          return (
+            <p
+              key={i}
+              className={`font-content text-2xl md:text-4xl leading-relaxed text-center whitespace-pre-wrap transition-all duration-500 ${
+                isNewest ? 'text-white' : 'text-white/25'
+              }`}
+            >
+              {s}
+              {isNewest && partialText && <span className="text-gray-500 animate-pulse">|</span>}
+            </p>
+          )
+        })}
+      </div>
+    ) : (
+      <p className="font-content text-2xl md:text-3xl text-gray-500 text-center">{statusText}</p>
+    )
+
   return (
     <div className="h-screen flex flex-col bg-gray-900">
       {/* Header - hide in fullscreen */}
@@ -146,39 +168,17 @@ export default function DualDisplayPage() {
         </div>
       )}
 
-      {/* Top Half - Flipped 180° for person across（自動捲動，最新可見）*/}
-      <div className="flex-1 min-h-0 border-b border-gray-700 overflow-hidden">
-        <div ref={topScrollRef} className="text-flipped h-full overflow-y-auto p-6 flex flex-col justify-end">
-          <div className="w-full max-w-4xl mx-auto">
-            {displayText ? (
-              <p className="font-content text-2xl md:text-4xl text-white leading-relaxed text-center whitespace-pre-wrap">
-                {displayText}
-                {partialText && <span className="text-gray-500 animate-pulse">|</span>}
-              </p>
-            ) : (
-              <p className="font-content text-2xl md:text-3xl text-gray-500 text-center">
-                {statusText}
-              </p>
-            )}
-          </div>
+      {/* Top Half - Flipped 180° for person across（字幕模式：最近 2 句、舊句淡出）*/}
+      <div className="flex-1 min-h-0 flex items-center justify-center p-6 border-b border-gray-700 overflow-hidden">
+        <div className="text-flipped w-full">
+          <Subtitle />
         </div>
       </div>
 
-      {/* Bottom Half - Normal for self（自動捲動，最新可見）*/}
-      <div className="flex-1 min-h-0 overflow-hidden">
-        <div ref={bottomScrollRef} className="h-full overflow-y-auto p-6 flex flex-col justify-end">
-          <div className="w-full max-w-4xl mx-auto">
-            {displayText ? (
-              <p className="font-content text-2xl md:text-4xl text-white leading-relaxed text-center whitespace-pre-wrap">
-                {displayText}
-                {partialText && <span className="text-gray-500 animate-pulse">|</span>}
-              </p>
-            ) : (
-              <p className="font-content text-2xl md:text-3xl text-gray-500 text-center">
-                {statusText}
-              </p>
-            )}
-          </div>
+      {/* Bottom Half - Normal for self */}
+      <div className="flex-1 min-h-0 flex items-center justify-center p-6 overflow-hidden">
+        <div className="w-full">
+          <Subtitle />
         </div>
       </div>
 
