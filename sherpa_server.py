@@ -1702,6 +1702,14 @@ class SherpaServer:
 
 
 if __name__ == "__main__":
+    # 強制 stdout/stderr 用 UTF-8。打包成 exe 後預設會跟系統碼頁(Big5)，
+    # 中文的尾位元組可能含 \ 或 } 而破壞 JSON，導致主程序收到的初始化回應解析失敗。
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-dir", type=str, default=None,

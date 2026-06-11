@@ -199,13 +199,25 @@ class SherpaManager {
    * 獲取模型緩存路徑
    */
   getModelCachePath() {
-    // Sherpa-ONNX 模型路徑
-    const candidates = [
-      // 項目內的 poc-sherpa 目錄
-      path.join(__dirname, "..", "..", "poc-sherpa", this.modelConfig.name),
-      // 用戶緩存目錄
-      path.join(os.homedir(), ".cache", "sherpa-onnx", this.modelConfig.name),
-    ];
+    // Sherpa-ONNX 模型路徑（依優先序）
+    const name = this.modelConfig.name;
+    const candidates = [];
+    // 打包版：模型隨安裝檔放在 resources/sherpa-backend/poc-sherpa
+    if (process.resourcesPath) {
+      candidates.push(
+        path.join(process.resourcesPath, "sherpa-backend", "poc-sherpa", name)
+      );
+    }
+    // 首次下載的位置：userData/models/poc-sherpa
+    try {
+      const userData = require("electron").app.getPath("userData");
+      candidates.push(path.join(userData, "models", "poc-sherpa", name));
+    } catch (e) {
+      /* 非 Electron 環境忽略 */
+    }
+    // 開發 / 後備：項目內 poc-sherpa、使用者快取
+    candidates.push(path.join(__dirname, "..", "..", "poc-sherpa", name));
+    candidates.push(path.join(os.homedir(), ".cache", "sherpa-onnx", name));
 
     for (const candidate of candidates) {
       if (fs.existsSync(candidate)) {
@@ -215,7 +227,7 @@ class SherpaManager {
     }
 
     // 默認返回 poc-sherpa 路徑（可能需要下載）
-    return path.join(__dirname, "..", "..", "poc-sherpa", this.modelConfig.name);
+    return path.join(__dirname, "..", "..", "poc-sherpa", name);
   }
 
   async checkModelFiles() {
@@ -440,12 +452,20 @@ class SherpaManager {
     try {
       this.logger.info && this.logger.info("Sherpa 管理器啟動初始化開始");
 
-      const pythonCmd = await this.findPythonExecutable();
-      this.logger.info && this.logger.info("Python 可執行文件找到", { pythonCmd });
+      // 打包版有自帶的 sherpa_server.exe → 跳過所有系統/嵌入式 Python 檢查
+      const bundledExe = this.getBundledServerExe();
+      if (bundledExe && fs.existsSync(bundledExe)) {
+        this.logger.info &&
+          this.logger.info("使用打包的 sherpa_server.exe", { bundledExe });
+      } else {
+        const pythonCmd = await this.findPythonExecutable();
+        this.logger.info &&
+          this.logger.info("Python 可執行文件找到", { pythonCmd });
 
-      const sherpaStatus = await this.checkSherpaInstallation();
-      this.logger.info &&
-        this.logger.info("Sherpa-ONNX 安裝狀態檢查完成", sherpaStatus);
+        const sherpaStatus = await this.checkSherpaInstallation();
+        this.logger.info &&
+          this.logger.info("Sherpa-ONNX 安裝狀態檢查完成", sherpaStatus);
+      }
 
       this.isInitialized = true;
 
