@@ -62,8 +62,9 @@ _VALID_REDUP = set((
     "个个 個個 条条 條條 件件 种种 種種 样样 樣樣 天天 年年 月月 日日 夜夜 人人 家家 户户 戶戶 村村 区区 區區 场场 場場 "
     # 形容
     "好好 多多 少少 大大 小小 长长 長長 短短 胖胖 瘦瘦 圆圆 圓圓 扁扁 红红 紅紅 绿绿 綠綠 蓝蓝 藍藍 黄黄 黃黃 黑黑 白白 亮亮 甜甜 酸酸 辣辣 咸咸 鹹鹹 香香 臭臭 暖暖 凉凉 涼涼 热热 熱熱 冷冷 软软 軟軟 硬硬 厚厚 薄薄 嫩嫩 脆脆 高高 低低 矮矮 满满 "
-    # 語氣/擬聲
-    "谢谢 謝謝 拜拜 嗯嗯 哈哈 呵呵 嘿嘿 嘻嘻 哼哼 喵喵 汪汪 咚咚 叮叮 啦啦 唉唉 哎哎"
+    # 語氣/擬聲（含語助詞疊用）
+    "谢谢 謝謝 拜拜 嗯嗯 哈哈 呵呵 嘿嘿 嘻嘻 哼哼 喵喵 汪汪 咚咚 叮叮 啦啦 唉唉 哎哎 "
+    "呀呀 啊啊 哇哇 哦哦 喔喔 嗚嗚 噢噢 咦咦"
 ).split())
 
 
@@ -143,14 +144,50 @@ def collapse_phrase_repeats(text):
     return text
 
 
+def normalize_interjections(text):
+    """語助詞正規化：哎/誒 → 欸；移除單獨的遲疑語助詞 呃。"""
+    if not text:
+        return text
+    text = text.replace('哎', '欸').replace('誒', '欸')
+    text = text.replace('呃', '')
+    return text
+
+
+# 句末片語 → 標點規則。標點模型常漏「！」，這裡用結尾片語補判 ？/！。
+# 註：此時文字仍為簡體（to_traditional 在最後才做），故用簡體片語。
+_PUNCT_RULES = {
+    "？": ["什么啊", "怎么啊", "为什么啊", "可以吗", "好吗", "是不是", "对不对",
+           "行不行", "好不好", "要不要", "有没有", "是吗", "对吗", "能不能"],
+    "！": ["怎样啦", "这样啦", "干嘛啦", "什么啦", "这样啊", "欸呀呀", "太棒了",
+           "好厉害", "真的假的", "不会吧", "天啊", "我的天"],
+}
+
+
+def apply_punct_rules(text):
+    """依句末片語修正標點：句子（以 。，！？ 結尾或字串結尾）若以規則片語結束，
+    就把句末標點改成對應的 ？或 ！。"""
+    if not text:
+        return text
+    import re
+    for mark, phrases in _PUNCT_RULES.items():
+        for p in phrases:
+            ep = re.escape(p)
+            # 片語後接句末標點 。，！？ → 換成目標標點
+            text = re.sub(ep + r'[。，！？]', p + mark, text)
+            # 片語在字串最末、沒有標點 → 補上目標標點
+            text = re.sub(ep + r'$', p + mark, text)
+    return text
+
+
 def clean_transcript(text):
-    """辨識後文字清理：全形→半形 + 合併英文 + 去口吃（單字 + 詞組）"""
+    """辨識前清理（標點之前）：全形→半形 + 合併英文 + 去口吃 + 語助詞正規化"""
     if not text:
         return text
     text = normalize_ascii_width(text)
     text = merge_spaced_letters(text)
     text = collapse_repeats(text)
     text = collapse_phrase_repeats(text)
+    text = normalize_interjections(text)
     return text
 
 # 設置日誌
@@ -1057,7 +1094,7 @@ class SherpaServer:
             return {
                 "success": True,
                 "session_id": session_id,
-                "final_text": to_traditional(clean_transcript(text_with_punc)),
+                "final_text": to_traditional(apply_punct_rules(clean_transcript(text_with_punc))),
                 "raw_text": to_traditional(raw_text),
                 "duration": round(duration, 2),
                 "process_time": round(elapsed, 2),
@@ -1139,6 +1176,8 @@ class SherpaServer:
 
             # 加入標點（優先使用 ct-punc 模型）
             text_with_punc = self._add_punctuation(text)
+            # 依句末片語修正 ？/！（補標點模型常漏的驚嘆/疑問）
+            text_with_punc = apply_punct_rules(text_with_punc)
 
             logger.info(f"轉錄完成: {text_with_punc[:100]}... (RTF: {rtf:.3f})")
 
