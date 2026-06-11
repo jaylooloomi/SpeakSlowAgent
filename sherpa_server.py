@@ -50,34 +50,58 @@ def normalize_ascii_width(text):
     return ''.join(out)
 
 
-# 幾乎不可能是疊字的字（人稱代詞 + 結構虛詞）：連續重複視為口吃，收成 1 個。
-_NON_REDUP_CHARS = set("我你妳他她它您是的了在把被將就都和跟與而並且或但卻則之其從向對為")
+# 有效疊字白名單（AA 形式，含簡繁）。不在名單內的連續重複中文字 → 視為口吃收成 1 個。
+_VALID_REDUP = set((
+    # 家庭稱謂
+    "爸爸 妈妈 媽媽 爹爹 哥哥 姐姐 弟弟 妹妹 爷爷 爺爺 奶奶 公公 婆婆 叔叔 婶婶 嬸嬸 伯伯 姑姑 舅舅 姨姨 宝宝 寶寶 乖乖 囡囡 妞妞 弟弟 哥哥 "
+    # 動作（看一看）
+    "看看 想想 试试 試試 走走 说说 說說 讲讲 講講 聊聊 玩玩 等等 找找 问问 問問 摸摸 抱抱 亲亲 親親 拍拍 数数 數數 闻闻 聞聞 尝尝 嚐嚐 写写 寫寫 读读 讀讀 算算 比比 量量 翻翻 查查 学学 學學 练练 練練 唱唱 跳跳 笑笑 猜猜 瞧瞧 望望 听听 聽聽 坐坐 站站 歇歇 动动 動動 转转 轉轉 晃晃 逛逛 试试 摇摇 搖搖 "
+    # 副詞
+    "慢慢 快快 刚刚 剛剛 常常 偏偏 渐渐 漸漸 轻轻 輕輕 重重 默默 悄悄 纷纷 紛紛 久久 早早 迟迟 遲遲 连连 連連 频频 頻頻 屡屡 屢屢 苦苦 深深 浅浅 淺淺 远远 遠遠 近近 团团 團團 牢牢 死死 紧紧 緊緊 松松 鬆鬆 稳稳 穩穩 偷偷 暗暗 明明 空空 满满 滿滿 处处 處處 时时 時時 步步 层层 層層 点点 點點 滴滴 一一 "
+    # 量詞/名詞
+    "个个 個個 条条 條條 件件 种种 種種 样样 樣樣 天天 年年 月月 日日 夜夜 人人 家家 户户 戶戶 村村 区区 區區 场场 場場 "
+    # 形容
+    "好好 多多 少少 大大 小小 长长 長長 短短 胖胖 瘦瘦 圆圆 圓圓 扁扁 红红 紅紅 绿绿 綠綠 蓝蓝 藍藍 黄黄 黃黃 黑黑 白白 亮亮 甜甜 酸酸 辣辣 咸咸 鹹鹹 香香 臭臭 暖暖 凉凉 涼涼 热热 熱熱 冷冷 软软 軟軟 硬硬 厚厚 薄薄 嫩嫩 脆脆 高高 低低 矮矮 满满 "
+    # 語氣/擬聲
+    "谢谢 謝謝 拜拜 嗯嗯 哈哈 呵呵 嘿嘿 嘻嘻 哼哼 喵喵 汪汪 咚咚 叮叮 啦啦 唉唉 哎哎"
+).split())
+
+
+def _is_cjk(ch):
+    return 0x4E00 <= ord(ch) <= 0x9FFF
 
 
 def collapse_repeats(text):
-    """去除口吃式重複字，但保留正常疊字（慢慢、謝謝）。
-    - 口吃字（_NON_REDUP_CHARS）連續重複 → 留 1 個
-    - 其他中文字連續 → 最多留 2 個（保住 AA 疊字、截斷過長口吃）
+    """去除口吃式重複字，但保留有效疊字。
+    - XX 在白名單（慢慢、謝謝、看看...）→ 保留 2 個
+    - 前或後也是「不同字的疊字」→ 視為 AABB 疊詞（吃吃喝喝、開開心心）→ 保留 2 個
+    - 否則視為口吃 → 收成 1 個（吃吃牛肉→吃牛肉、我我→我）
     - 非中文（英文/數字/標點）不動
     """
     if not text:
         return text
-    out = []
+    # 先切成連續段 (字, 次數)
+    runs = []
     i, n = 0, len(text)
     while i < n:
         ch = text[i]
         j = i
         while j < n and text[j] == ch:
             j += 1
-        run = j - i
-        if run >= 2 and 0x4E00 <= ord(ch) <= 0x9FFF:
-            if ch in _NON_REDUP_CHARS:
-                out.append(ch)
+        runs.append((ch, j - i))
+        i = j
+
+    out = []
+    for k, (ch, run) in enumerate(runs):
+        if run >= 2 and _is_cjk(ch):
+            prev_dup = k > 0 and runs[k - 1][1] >= 2 and runs[k - 1][0] != ch and _is_cjk(runs[k - 1][0])
+            next_dup = k + 1 < len(runs) and runs[k + 1][1] >= 2 and runs[k + 1][0] != ch and _is_cjk(runs[k + 1][0])
+            if (ch + ch) in _VALID_REDUP or prev_dup or next_dup:
+                out.append(ch * 2)   # 有效疊字 / AABB 疊詞 → 保留 2
             else:
-                out.append(ch * 2)
+                out.append(ch)       # 口吃 → 收成 1
         else:
             out.append(ch * run)
-        i = j
     return ''.join(out)
 
 
