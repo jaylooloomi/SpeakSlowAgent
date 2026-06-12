@@ -239,6 +239,31 @@ def format_lists(text):
     return (intro + '：\n' + body) if intro else body
 
 
+def localize_english_punct(text):
+    """純英文行的「去中文腔」：標點模型對英文也會輸出全形標點
+    （hello，how are you？），這裡把不含中日韓字元的行轉成英文慣例：
+    半形標點 + 標點後空格 + 句首大寫 + 獨立 i → I。
+    中英混雜的行保留中文標點（那是中文句子裡夾英文，全形才對）。"""
+    if not text:
+        return text
+    out_lines = []
+    for line in text.split('\n'):
+        if not line or any(_is_cjk(ch) for ch in line):
+            out_lines.append(line)
+            continue
+        l = line
+        for a, b in [('，', ', '), ('。', '. '), ('？', '? '), ('！', '! '),
+                     ('：', ': '), ('；', '; '), ('、', ', ')]:
+            l = l.replace(a, b)
+        l = re.sub(r'\s+([,.?!:;])', r'\1', l)   # 標點前不留空格
+        l = re.sub(r'\s{2,}', ' ', l).strip()     # 收斂多餘空格
+        l = re.sub(r'(^|[.?!]\s+)([a-z])',
+                   lambda m: m.group(1) + m.group(2).upper(), l)  # 句首大寫
+        l = re.sub(r'\bi\b', 'I', l)               # i / i'm → I / I'm
+        out_lines.append(l)
+    return '\n'.join(out_lines)
+
+
 def clean_transcript(text):
     """辨識前清理（標點之前）：全形→半形 + 合併英文 + 去口吃 + 語助詞正規化"""
     if not text:

@@ -22,6 +22,7 @@ from text_processing import (
     clean_transcript,
     apply_punct_rules,
     format_lists,
+    localize_english_punct,
 )
 
 # 設置日誌
@@ -1153,7 +1154,7 @@ class SherpaServer:
             return {
                 "success": True,
                 "session_id": session_id,
-                "final_text": to_traditional(format_lists(apply_punct_rules(clean_transcript(text_with_punc)))),
+                "final_text": to_traditional(localize_english_punct(format_lists(apply_punct_rules(clean_transcript(text_with_punc))))),
                 "raw_text": to_traditional(raw_text),
                 "duration": round(duration, 2),
                 "process_time": round(elapsed, 2),
@@ -1314,6 +1315,8 @@ class SherpaServer:
             text_with_punc = "\n".join(punct_lines)
             # 規則式列點排版（免 AI）：第一/第二/第三… → 1. 2. 3. 換行清單
             text_with_punc = format_lists(text_with_punc)
+            # 純英文行轉英文標點慣例（半形 + 句首大寫），中英混雜行不動
+            text_with_punc = localize_english_punct(text_with_punc)
 
             logger.info(f"轉錄完成: {text_with_punc[:100]}... (RTF: {rtf:.3f})")
 
