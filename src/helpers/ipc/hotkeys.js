@@ -222,9 +222,9 @@ module.exports = function register(ctx) {
             ctx.windowManager.showTypelessIndicator();
           }
           // 發送開始錄音事件到渲染進程
-          if (ctx.windowManager?.mainWindow && !ctx.windowManager.mainWindow.isDestroyed()) {
-            ctx.windowManager.mainWindow.webContents.send("typeless-start-recording");
-          }
+          require("electron").BrowserWindow.getAllWindows().forEach((w) => {
+            if (!w.isDestroyed()) w.webContents.send("typeless-start-recording");
+          });
         },
         onStopRecording: () => {
           ctx.logger.info('TypeLess: 觸發停止錄音');
@@ -233,9 +233,9 @@ module.exports = function register(ctx) {
             ctx.windowManager.hideTypelessIndicator();
           }
           // 發送停止錄音事件到渲染進程
-          if (ctx.windowManager?.mainWindow && !ctx.windowManager.mainWindow.isDestroyed()) {
-            ctx.windowManager.mainWindow.webContents.send("typeless-stop-recording");
-          }
+          require("electron").BrowserWindow.getAllWindows().forEach((w) => {
+            if (!w.isDestroyed()) w.webContents.send("typeless-stop-recording");
+          });
         },
         onCancelRecording: () => {
           ctx.logger.info('TypeLess: 觸發取消錄音 (Esc)');
@@ -244,9 +244,9 @@ module.exports = function register(ctx) {
             ctx.windowManager.hideTypelessIndicator();
           }
           // 發送取消錄音事件到渲染進程（丟棄音訊、不轉錄、不貼上）
-          if (ctx.windowManager?.mainWindow && !ctx.windowManager.mainWindow.isDestroyed()) {
-            ctx.windowManager.mainWindow.webContents.send("typeless-cancel-recording");
-          }
+          require("electron").BrowserWindow.getAllWindows().forEach((w) => {
+            if (!w.isDestroyed()) w.webContents.send("typeless-cancel-recording");
+          });
         }
       });
 

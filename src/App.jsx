@@ -11,7 +11,7 @@ import { useTextProcessing } from "./hooks/useTextProcessing";
 import { useModelStatus } from "./hooks/useModelStatus";
 import { usePermissions } from "./hooks/usePermissions";
 import { useTranslation } from "./i18n";
-import { Mic, MicOff, Settings, Copy, Download, X, Pin, Minus, Sparkles } from "lucide-react";
+import { Mic, MicOff, Settings, Copy, Download, X, Pin, Minus, Sparkles, Minimize2 } from "lucide-react";
 import SettingsPanel from "./components/SettingsPanel";
 import { ModelDownloadProgress } from "./components/ui/model-status-indicator";
 
@@ -20,6 +20,9 @@ const SettingsPage = React.lazy(() => import('./settings.jsx').then(module => ({
 
 // 动态导入 TypeLess 指示器组件
 const TypelessIndicator = React.lazy(() => import('./components/TypelessIndicator'));
+
+// 迷你模式（獨立扁平小視窗）
+const MiniBar = React.lazy(() => import('./components/MiniBar'));
 
 // 声波图标组件（空闲/悬停状态）- 使用 React.memo 優化
 const SoundWaveIcon = React.memo(({ size = 16, isActive = false }) => {
@@ -189,9 +192,9 @@ const TextDisplay = React.memo(({ originalText, processedText, scrollRef, t }) =
 
   return (
     <div className="fade-in mb-3">
-      {/* 卡片只顯示少數幾行，超過就在卡片內捲動；與底部留間距(mb-3) */}
+      {/* 卡片高度隨內容（一句話就扁扁的），超過上限才在卡片內捲動 */}
       <div className="bg-white/90 dark:bg-gray-800/90 rounded-xl shadow-md border border-gray-200/70 dark:border-gray-700/60 overflow-hidden">
-        <div ref={scrollRef} className="h-[148px] overflow-y-auto px-3.5 py-3 panel-scroll">
+        <div ref={scrollRef} className="max-h-[120px] overflow-y-auto px-3.5 py-3 panel-scroll">
           <p
             className="chinese-content text-gray-800 dark:text-gray-200"
             style={{ fontSize: '14px', lineHeight: 1.7, letterSpacing: '0.02em', whiteSpace: 'pre-wrap' }}
@@ -266,6 +269,15 @@ export default function App() {
     return (
       <React.Suspense fallback={<div className="w-full h-full" />}>
         <TypelessIndicator />
+      </React.Suspense>
+    );
+  }
+
+  // 迷你模式頁面（獨立小視窗）
+  if (page === 'mini') {
+    return (
+      <React.Suspense fallback={<div className="w-full h-full" />}>
+        <MiniBar />
       </React.Suspense>
     );
   }
@@ -1107,6 +1119,14 @@ export default function App() {
                 }`}
               >
                 ✨AI
+              </button>
+            </Tooltip>
+            <Tooltip content={t('panel.miniMode')} position="bottom">
+              <button
+                onClick={() => window.electronAPI?.openMiniMode?.()}
+                className="p-1.5 hover:bg-white/70 dark:hover:bg-gray-700/70 rounded-lg transition-colors non-draggable"
+              >
+                <Minimize2 className="w-4 h-4 text-gray-600 dark:text-gray-400" />
               </button>
             </Tooltip>
             <Tooltip content={t('app.settings')} position="bottom">
