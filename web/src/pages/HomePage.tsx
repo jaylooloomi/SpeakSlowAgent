@@ -8,7 +8,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <Nav />
-      <div className="container mx-auto px-4 py-16">
+      <div className="container mx-auto px-4 py-14">
         <div className="text-center max-w-3xl mx-auto">
           {/* Title */}
           <h1 className="font-title text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-2">
@@ -22,12 +22,29 @@ export default function HomePage() {
           <p className="text-lg md:text-xl text-gray-700 dark:text-gray-200 mb-2">
             專為中文打造、<strong>最快</strong>的本地語音輸入
           </p>
-          <p className="text-base md:text-lg text-gray-500 dark:text-gray-400 mb-9 max-w-2xl mx-auto">
-            用講的取代打字 — 超快、超準。<strong className="text-blue-600 dark:text-blue-400">特別適合用語音跟 AI 對話</strong>，講完馬上送出，小錯字 AI 也讀得懂。
+          <p className="text-base md:text-lg text-gray-500 dark:text-gray-400 mb-8 max-w-2xl mx-auto">
+            用講的取代打字，超快、超準。<strong className="text-emerald-600 dark:text-emerald-400">特別適合用語音跟 AI 對話</strong>，講完馬上送出，小錯字 AI 也讀得懂。
           </p>
 
+          {/* Product screenshot */}
+          <div className="mb-8">
+            <img
+              src={screenshot}
+              alt="聲聲慢 SpeakSlow 介面"
+              className="mx-auto rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 max-w-sm w-full"
+            />
+          </div>
+
           {/* Primary CTAs */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-10">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+            <a
+              href={`${REPO}/releases`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-xl transition-colors shadow-lg"
+            >
+              <Download className="w-5 h-5" /> 下載 Windows 版（免費）
+            </a>
             <a
               href={REPO}
               target="_blank"
@@ -36,31 +53,6 @@ export default function HomePage() {
             >
               <Github className="w-5 h-5" /> 在 GitHub 上 Star ⭐
             </a>
-            <a
-              href={`${REPO}/releases`}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors shadow-lg"
-            >
-              <Download className="w-5 h-5" /> 下載 Windows 版
-            </a>
-          </div>
-
-          {/* Product screenshot */}
-          <div className="mb-10">
-            <img
-              src={screenshot}
-              alt="聲聲慢 SpeakSlow 介面"
-              className="mx-auto rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 max-w-sm w-full"
-            />
-          </div>
-
-          {/* Features */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <FeatureCard icon="⚡" title="最快" desc="講完約 0.3 秒貼上" />
-            <FeatureCard icon="🈶" title="為中文而生" desc="專門中文優化、更準" />
-            <FeatureCard icon="🤖" title="AI 對話神器" desc="講得比打字快十倍" />
-            <FeatureCard icon="🔒" title="本地隱私" desc="100% 本機、不上雲" />
           </div>
 
           <p className="text-sm text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
@@ -78,16 +70,6 @@ export default function HomePage() {
           </p>
         </div>
       </footer>
-    </div>
-  )
-}
-
-function FeatureCard({ icon, title, desc }: { icon: string; title: string; desc: string }) {
-  return (
-    <div className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm">
-      <div className="text-2xl mb-2">{icon}</div>
-      <div className="font-medium text-gray-900 dark:text-white">{title}</div>
-      <div className="text-sm text-gray-500 dark:text-gray-400">{desc}</div>
     </div>
   )
 }

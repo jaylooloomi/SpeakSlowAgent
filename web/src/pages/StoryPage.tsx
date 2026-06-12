@@ -21,8 +21,7 @@ export default function StoryPage() {
             <p>
               聲聲慢改自 <a className="text-emerald-600 hover:underline" href="https://github.com/yan5xu/ququ" target="_blank" rel="noreferrer">ququ</a>（蛐蛐）這個開源專案。
               原版用 FunASR + PyTorch，又大又吃資源；我們把引擎整個換成
-              <a className="text-emerald-600 hover:underline" href="https://github.com/k2-fsa/sherpa-onnx" target="_blank" rel="noreferrer"> sherpa-onnx</a> —
-              快 10 倍以上、記憶體省 75%，普通筆電也跑得動。然後為台灣使用情境重做了輸出：台灣標準字（「吃」不是「喫」）、語助詞標點（嗎→？啊→！）、去口吃贅字。
+              <a className="text-emerald-600 hover:underline" href="https://github.com/k2-fsa/sherpa-onnx" target="_blank" rel="noreferrer"> sherpa-onnx</a>，快 10 倍以上、記憶體省 75%，普通筆電也跑得動。然後為台灣使用情境重做了輸出：台灣標準字（「吃」不是「喫」）、語助詞標點（嗎→？啊→！）、去口吃贅字。
             </p>
           </section>
 
@@ -30,19 +29,19 @@ export default function StoryPage() {
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">一個意外的發現：停頓會說話</h2>
             <p className="mb-3">
               做著做著發現，辨識引擎會回傳<strong>每個字的時間戳</strong>。連續講話時字距約 0.18 秒，
-              而你換氣、思考的停頓是 0.5～2.7 秒 — 差了一個數量級，清清楚楚。
+              而你換氣、思考的停頓是 0.5～2.7 秒，差了一個數量級，清清楚楚。
             </p>
             <p>
               於是「停頓自動斷行」誕生了：你講話自然停頓的地方，文字就自動換行。
               不用 AI、不用雲端，純粹是把人類本來就有的韻律翻譯成排版。
-              這個功能雲端工具做不到 — 因為時間戳在你的電腦裡，不在他們的伺服器上。
+              這個功能雲端工具做不到，因為時間戳在你的電腦裡，不在他們的伺服器上。
             </p>
           </section>
 
           <section>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">速度的執念：邊錄邊算</h2>
             <p className="mb-3">
-              短句講完 0.3 秒出字，但長講一分鐘要等快 2 秒 — 不能忍。
+              短句講完 0.3 秒出字，但長講一分鐘要等快 2 秒，不能忍。
               解法是<strong>邊錄邊算</strong>：你還在講的時候，已經講完的句子就在背景先辨識掉了，
               按停止時只剩最後一兩秒要算。
             </p>
@@ -56,10 +55,10 @@ export default function StoryPage() {
           <section>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">為什麼堅持全本地</h2>
             <p>
-              市面上的語音輸入幾乎都把你的聲音送上雲端 — 因為雲端模型大、效果好管理也容易。
+              市面上的語音輸入幾乎都把你的聲音送上雲端，因為雲端模型大、效果好管理也容易。
               但我們想要的是：<strong>跟 AI 對話前的最後一哩路，不應該再經過另一朵雲</strong>。
               你跟 ChatGPT 講的話、你的工作筆記、你罵老闆的草稿，憑什麼先給語音服務商聽一遍？
-              全本地的代價是模型小一點、安裝檔大一點 — 我們認為值得。
+              全本地的代價是模型小一點、安裝檔大一點，我們認為值得。
             </p>
           </section>
 

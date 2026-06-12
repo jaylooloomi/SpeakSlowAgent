@@ -39,9 +39,9 @@ export default function ComparePage() {
                 <tr key={r.k}>
                   <td className="px-4 py-3 font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">{r.k}</td>
                   <td className="px-4 py-3 text-emerald-700 dark:text-emerald-300 font-medium">{r.us}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{r.sayit ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{r.zerotype ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{r.win ?? '—'}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{r.sayit ?? '·'}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{r.zerotype ?? '·'}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{r.win ?? '·'}</td>
                 </tr>
               ))}
             </tbody>
@@ -63,14 +63,14 @@ export default function ComparePage() {
             <ul className="text-sm text-gray-700 dark:text-gray-200 space-y-2 leading-relaxed">
               <li>• <strong>唯一全本地</strong>：上面這排工具裡，只有我們的聲音不離開你的電腦。</li>
               <li>• <strong>唯一真免費無限量</strong>：沒有 API 帳單，因為根本沒有 API。</li>
-              <li>• <strong>免 AI 的乾淨輸出</strong>：標點、去口吃、列點、停頓斷行全是本地規則 — 別人這些要靠雲端 LLM。</li>
+              <li>• <strong>免 AI 的乾淨輸出</strong>：標點、去口吃、列點、停頓斷行全是本地規則，別人這些要靠雲端 LLM。</li>
               <li>• <strong>長講邊錄邊算</strong>：講一分鐘，停止後 ~0.2 秒出字（實測快 8 倍）。</li>
             </ul>
           </div>
         </div>
 
         <p className="text-xs text-gray-400 dark:text-gray-500 mb-8">
-          ＊以上比較基於各工具 2026 年中的公開資訊，若有出入歡迎開 issue 指正 — 我們樂意更新（包含把別人寫得更好）。
+          ＊以上比較基於各工具 2026 年中的公開資訊，若有出入歡迎開 issue 指正，我們樂意更新（包含把別人寫得更好）。
         </p>
 
         <div className="text-center">
