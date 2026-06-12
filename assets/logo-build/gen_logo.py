@@ -4,8 +4,8 @@ from PIL import Image, ImageDraw, ImageFont
 S = 1024
 FONT = "src/fonts/GenWanMin2TC-M.otf"
 CHAR = "聲"
-C1 = np.array([79, 157, 255])   # 亮藍 #4F9DFF
-C2 = np.array([109, 92, 246])   # 靛紫 #6D5CF6
+C1 = np.array([74, 222, 128])   # 亮綠 #4ADE80
+C2 = np.array([5, 150, 105])    # 翡翠深綠 #059669
 
 # 對角漸層
 yy, xx = np.mgrid[0:S, 0:S].astype(float)
@@ -26,7 +26,7 @@ w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
 x = (S - w) / 2 - bbox[0]
 y = (S - h) / 2 - bbox[1]
 # 輕微陰影增加層次
-draw.text((x + 6, y + 8), CHAR, font=font, fill=(40, 50, 120, 70))
+draw.text((x + 6, y + 8), CHAR, font=font, fill=(20, 80, 60, 70))
 draw.text((x, y), CHAR, font=font, fill=(255, 255, 255, 255))
 
 img.save("assets/logo-build/icon-1024.png")
