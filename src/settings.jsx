@@ -1043,11 +1043,17 @@ const SettingsPage = () => {
             <div className="space-y-4 max-w-xl">
               {/* 專案 */}
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-5 text-center">
+                <img
+                  src="./icon.png"
+                  alt="聲聲慢 logo"
+                  className="w-20 h-20 mx-auto mb-3 rounded-2xl shadow-md"
+                  draggable="false"
+                />
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 brand-title">
                   聲聲慢 <span className="text-base font-normal text-gray-400">SpeakSlow</span>
                 </h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">專為中文打造、最快的本地語音輸入 · 免費、隱私</p>
-                <p className="text-[11px] text-gray-400 mt-2">v1.0.0 · Apache License 2.0</p>
+                <p className="text-[11px] text-gray-400 mt-2">v1.0.1 · Apache License 2.0</p>
               </div>
 
               {/* 作者 */}
