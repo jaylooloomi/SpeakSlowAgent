@@ -22,8 +22,10 @@ export default function HomePage() {
           <p className="text-lg md:text-xl text-gray-700 dark:text-gray-200 mb-2">
             專為中文打造、<strong>最快</strong>的本地語音輸入
           </p>
-          <p className="text-base md:text-lg text-gray-500 dark:text-gray-400 mb-8 max-w-2xl mx-auto">
-            用講的取代打字，超快、超準。<strong className="text-emerald-600 dark:text-emerald-400">特別適合用語音跟 AI 對話</strong>，講完馬上送出，小錯字 AI 也讀得懂。
+          <p className="text-base md:text-lg text-gray-500 dark:text-gray-400 mb-8 max-w-2xl mx-auto leading-relaxed">
+            用講的取代打字，超快、超準。
+            <br />
+            <strong className="text-emerald-600 dark:text-emerald-400">特別適合用語音跟 AI 對話</strong>，講完馬上送出，小錯字 AI 也讀得懂。
           </p>
 
           {/* Product screenshot */}
@@ -55,8 +57,9 @@ export default function HomePage() {
             </a>
           </div>
 
-          <p className="text-sm text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
+          <p className="text-sm text-gray-500 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed">
             想跟 ChatGPT / Claude / Cursor 講很多話？用講的比打字快太多，講完馬上送出。
+            <br />
             免費開源、比 Windows 內建更私密（本地非雲端）。
           </p>
         </div>
