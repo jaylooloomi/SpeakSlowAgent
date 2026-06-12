@@ -21,9 +21,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
 
   // Sherpa 语音识别
-  transcribeAudio: (audioData) => ipcRenderer.invoke("transcribe-audio", audioData),
+  transcribeAudio: (audioData, options) => ipcRenderer.invoke("transcribe-audio", audioData, options),
   checkSherpaStatus: () => ipcRenderer.invoke("check-sherpa-status"),
   restartSherpaServer: () => ipcRenderer.invoke("restart-sherpa-server"),
+
+  // 邊錄邊算（precog）：錄音中先解碼已講完的段落，停止時只剩尾段
+  precogStart: () => ipcRenderer.invoke("precog-start"),
+  precogFeed: (audioB64) => ipcRenderer.invoke("precog-feed", audioB64),
+  precogAbort: () => ipcRenderer.invoke("precog-abort"),
 
   // 串流辨識 API (Zipformer Transducer)
   streamingStart: (options) => ipcRenderer.invoke("streaming-start", options),

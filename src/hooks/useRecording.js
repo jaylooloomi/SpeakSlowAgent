@@ -25,6 +25,44 @@ export const useRecording = (modelStatus) => {
   // 添加防重复处理机制
   const processingRef = useRef({ isProcessingAudio: false, lastProcessTime: 0 });
 
+  // 邊錄邊算（precog）：長講時錄音中先解碼已講完的段落，停止只剩尾段。
+  // 錄音超過 PRECOG_START_SEC 才啟動 — 短句維持單次解碼路徑（保留停頓斷行）。
+  const PRECOG_START_SEC = 12;
+  const precogRef = useRef({ active: false, fedChunks: 0, timer: null });
+
+  const stopPrecogTimer = useCallback(() => {
+    if (precogRef.current.timer) {
+      clearInterval(precogRef.current.timer);
+      precogRef.current.timer = null;
+    }
+  }, []);
+
+  // Float32 (sourceRate) → Int16 16kHz → base64
+  const chunksToPcm16Base64 = (chunks, sourceRate) => {
+    const total = chunks.reduce((s, a) => s + a.length, 0);
+    const merged = new Float32Array(total);
+    let off = 0;
+    for (const c of chunks) { merged.set(c, off); off += c.length; }
+    const ratio = sourceRate / 16000;
+    const outLen = Math.floor(merged.length / ratio);
+    const int16 = new Int16Array(outLen);
+    for (let i = 0; i < outLen; i++) {
+      const idx = i * ratio;
+      const lo = Math.floor(idx);
+      const hi = Math.min(lo + 1, merged.length - 1);
+      const frac = idx - lo;
+      const s = merged[lo] * (1 - frac) + merged[hi] * frac;
+      int16[i] = Math.max(-32768, Math.min(32767, Math.round(s * 32767)));
+    }
+    const bytes = new Uint8Array(int16.buffer);
+    let bin = '';
+    const CHUNK = 0x8000;
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+    }
+    return btoa(bin);
+  };
+
   // 麥克風權限狀態快取
   const micPermissionRef = useRef('unknown');
 
@@ -48,6 +86,7 @@ export const useRecording = (modelStatus) => {
 
   // 清理資源
   const cleanup = useCallback(() => {
+    stopPrecogTimer(); // 停止邊錄邊算的餵入（不 abort：成功路徑還要取用結果）
     if (processorRef.current) {
       processorRef.current.disconnect();
       processorRef.current = null;
@@ -65,7 +104,7 @@ export const useRecording = (modelStatus) => {
       streamRef.current = null;
     }
     pcmBufferRef.current = [];
-  }, []);
+  }, [stopPrecogTimer]);
 
   // 开始录音（使用 ScriptProcessor 直接錄製 PCM，避免 webm 解碼問題）
   const startRecording = useCallback(async () => {
@@ -165,6 +204,30 @@ export const useRecording = (modelStatus) => {
       source.connect(processor);
       processor.connect(audioContext.destination);
 
+      // 邊錄邊算：每秒檢查，超過門檻就啟動 precog 並持續餵新音訊
+      precogRef.current = { active: false, fedChunks: 0, timer: null };
+      const srcRate = audioContext.sampleRate;
+      precogRef.current.timer = setInterval(async () => {
+        try {
+          const p = precogRef.current;
+          const chunks = pcmBufferRef.current;
+          const totalSamples = chunks.reduce((s, a) => s + a.length, 0);
+          if (!p.active) {
+            if (totalSamples / srcRate < PRECOG_START_SEC) return;
+            const r = await window.electronAPI?.precogStart?.();
+            if (!r?.success) { stopPrecogTimer(); return; } // 後端不支援就放棄
+            p.active = true;
+          }
+          const newChunks = chunks.slice(p.fedChunks);
+          if (newChunks.length === 0) return;
+          p.fedChunks = chunks.length;
+          const b64 = chunksToPcm16Base64(newChunks, srcRate);
+          window.electronAPI?.precogFeed?.(b64);
+        } catch (err) {
+          stopPrecogTimer(); // 任何錯誤 → 停止餵，回退一般路徑
+        }
+      }, 1000);
+
     } catch (err) {
       setError(`无法开始录音: ${err.message}`);
       setIsRecording(false);
@@ -202,6 +265,21 @@ export const useRecording = (modelStatus) => {
         offset += chunk.length;
       }
 
+      // 邊錄邊算：停止餵入；若已啟動，餵完最後一批再帶 flag 取結果
+      stopPrecogTimer();
+      const precogActive = precogRef.current.active;
+      if (precogActive) {
+        try {
+          const lastChunks = pcmBufferRef.current.slice(precogRef.current.fedChunks);
+          if (lastChunks.length > 0) {
+            const b64 = chunksToPcm16Base64(lastChunks, sourceSampleRate);
+            await window.electronAPI?.precogFeed?.(b64);
+          }
+        } catch (e) {
+          /* 餵尾失敗 → 後端 finalize 拿不到完整 precog，會自動回退一般路徑 */
+        }
+      }
+
       // 清理資源
       cleanup();
 
@@ -212,7 +290,7 @@ export const useRecording = (modelStatus) => {
       setAudioData(wavBlob);
 
       // 處理音頻
-      await processAudio(wavBlob);
+      await processAudio(wavBlob, { use_precog: precogActive });
     } catch (err) {
       setError(`音频处理失败: ${err.message}`);
       cleanup();
@@ -222,7 +300,7 @@ export const useRecording = (modelStatus) => {
   }, [isRecording, cleanup]);
 
   // 处理音频（接收已經是 WAV 格式的 blob）
-  const processAudio = useCallback(async (wavBlob) => {
+  const processAudio = useCallback(async (wavBlob, transcribeOptions = {}) => {
     processingRef.current.isProcessingAudio = true;
 
     try {
@@ -230,7 +308,7 @@ export const useRecording = (modelStatus) => {
         const arrayBuffer = await wavBlob.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
 
-        const transcriptionResult = await window.electronAPI.transcribeAudio(uint8Array);
+        const transcriptionResult = await window.electronAPI.transcribeAudio(uint8Array, transcribeOptions);
 
         if (transcriptionResult.success) {
           let raw_text = transcriptionResult.text;
@@ -437,11 +515,16 @@ export const useRecording = (modelStatus) => {
 
   // 取消录音
   const cancelRecording = useCallback(() => {
+    stopPrecogTimer();
+    if (precogRef.current.active) {
+      precogRef.current.active = false;
+      window.electronAPI?.precogAbort?.();
+    }
     cleanup();
     setIsRecording(false);
     setIsProcessing(false);
     setError(null);
-  }, [cleanup]);
+  }, [cleanup, stopPrecogTimer]);
 
   // 获取录音权限状态
   const checkPermissions = useCallback(async () => {

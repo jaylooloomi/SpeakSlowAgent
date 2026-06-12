@@ -513,6 +513,128 @@ class SherpaServer:
             logger.warning(f"VAD 分段失敗: {e}")
             return None
 
+    # ========== 邊錄邊算（precog）==========
+    # 錄音進行中就把「已閉合的語音段」先用同一顆 Paraformer 解碼掉，
+    # 按停止時只剩尾段要算 → 長講的停止延遲從「整段成本」變「尾段成本」。
+    # 精度零損失（同模型、同 VAD 切段邏輯，等同既有的長音訊分段路徑）。
+
+    def precog_start(self):
+        if self.vad is None or self.recognizer is None:
+            return {"success": False, "error": "VAD/辨識器未就緒"}
+        import threading
+        import queue as _queue
+
+        self.precog_abort()  # 清掉殘留會話
+        self.vad.reset()
+        p = {
+            "queue": _queue.Queue(),
+            "results": [],     # [(idx, text)]
+            "rem": np.zeros(0, dtype=np.float32),  # 未滿 512 窗的殘樣本
+            "fed_samples": 0,
+            "seg_count": 0,
+            "active": True,
+        }
+
+        def worker():
+            while True:
+                item = p["queue"].get()
+                if item is None:
+                    break
+                idx, seg = item
+                try:
+                    import time as _t
+                    t0 = _t.time()
+                    txt = self._transcribe_samples(seg, 16000)
+                    p["results"].append((idx, txt))
+                    logger.info(
+                        f"precog 段 {idx}（{len(seg)/16000:.1f}s）解碼 {( _t.time()-t0)*1000:.0f}ms"
+                    )
+                except Exception as e:
+                    logger.warning(f"precog 段 {idx} 解碼失敗: {e}")
+                    p["results"].append((idx, ""))
+
+        th = threading.Thread(target=worker, daemon=True)
+        p["thread"] = th
+        th.start()
+        self.precog = p
+        logger.info("precog 會話啟動（邊錄邊算）")
+        return {"success": True}
+
+    def precog_feed(self, audio_data):
+        p = getattr(self, "precog", None)
+        if not p or not p["active"]:
+            return {"success": False, "error": "precog 未啟動"}
+        try:
+            import base64
+            audio_bytes = base64.b64decode(audio_data)
+            samples = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+            window_size = 512
+            buf = np.concatenate([p["rem"], samples])
+            n_full = (len(buf) // window_size) * window_size
+            for i in range(0, n_full, window_size):
+                self.vad.accept_waveform(buf[i:i + window_size])
+            p["rem"] = buf[n_full:]
+            p["fed_samples"] += len(samples)
+            # 已閉合的語音段 → 丟給 worker 先解碼
+            while not self.vad.empty():
+                seg = np.array(self.vad.front.samples, dtype=np.float32)
+                self.vad.pop()
+                p["queue"].put((p["seg_count"], seg))
+                p["seg_count"] += 1
+            return {"success": True, "segments": p["seg_count"], "decoded": len(p["results"])}
+        except Exception as e:
+            logger.warning(f"precog_feed 失敗: {e}")
+            return {"success": False, "error": str(e)}
+
+    def precog_finalize(self):
+        """停止錄音時呼叫：flush VAD 取尾段、等 worker 清完佇列、按序拼接文字。
+        回傳 (text, duration_sec)；會話不可用時回傳 None。"""
+        p = getattr(self, "precog", None)
+        if not p or not p["active"]:
+            return None
+        try:
+            import time as _t
+            # 殘樣本 + flush 出最後的段
+            if len(p["rem"]) > 0:
+                window_size = 512
+                tailbuf = np.pad(p["rem"], (0, (-len(p["rem"])) % window_size), 'constant')
+                for i in range(0, len(tailbuf), window_size):
+                    self.vad.accept_waveform(tailbuf[i:i + window_size])
+            self.vad.flush()
+            while not self.vad.empty():
+                seg = np.array(self.vad.front.samples, dtype=np.float32)
+                self.vad.pop()
+                p["queue"].put((p["seg_count"], seg))
+                p["seg_count"] += 1
+            # 等 worker 清完（尾段通常只有 1-2 段，等待 ≈ 尾段解碼時間）
+            deadline = _t.time() + 30
+            while len(p["results"]) < p["seg_count"] and _t.time() < deadline:
+                _t.sleep(0.01)
+            p["active"] = False
+            p["queue"].put(None)
+            if p["seg_count"] == 0:
+                return None
+            text = "".join(t for _, t in sorted(p["results"]) if t)
+            duration = p["fed_samples"] / 16000.0
+            logger.info(f"precog 完成：{p['seg_count']} 段、{duration:.1f}s 音訊")
+            return (text, duration)
+        except Exception as e:
+            logger.warning(f"precog_finalize 失敗: {e}")
+            return None
+        finally:
+            self.precog = None
+
+    def precog_abort(self):
+        p = getattr(self, "precog", None)
+        if p:
+            p["active"] = False
+            try:
+                p["queue"].put(None)
+            except Exception:
+                pass
+            self.precog = None
+        return {"success": True}
+
     def _init_punctuation_model(self):
         """在背景線程初始化 sherpa-onnx 標點模型（ct-transformer，免 torch）"""
         import threading
@@ -1111,9 +1233,23 @@ class SherpaServer:
             # Paraformer 是為短句設計的，整段塞太長會幻聽/吃字；分段可根治。
             # 短音訊維持原本單次解碼（零回歸）。
             LONG_AUDIO_SEC = 15.0
-            segments = self._vad_segment_list(speech_samples) if duration > LONG_AUDIO_SEC else None
 
-            if segments and len(segments) > 1:
+            # 邊錄邊算：若 renderer 在錄音中已餵過音訊，直接取用預解碼結果
+            #（前面的段落早就算完，這裡只等尾段）。Whisper 模式不適用。
+            precog_result = None
+            if options.get("use_precog") and not use_whisper:
+                precog_result = self.precog_finalize()
+            else:
+                self.precog_abort()  # 清掉殘留會話
+
+            segments = None
+            if precog_result is None and duration > LONG_AUDIO_SEC:
+                segments = self._vad_segment_list(speech_samples)
+
+            if precog_result is not None:
+                text, _precog_dur = precog_result
+                logger.info(f"使用邊錄邊算結果（{duration:.1f}s 音訊，停止後僅補尾段）")
+            elif segments and len(segments) > 1:
                 # 逐段解碼。實測過 decode_streams 批次反而慢 2 倍：
                 # 批次會把所有段 padding 到最長段（浪費算力），且單段解碼的
                 # intra-op 8 執行緒已吃滿核心，沒有閒置算力可平行。
@@ -1442,6 +1578,13 @@ class SherpaServer:
                 elif action == "stats":
                     result = {"success": True, "stats": self.get_performance_stats()}
                 # ========== 串流辨識命令 ==========
+                # ========== 邊錄邊算（precog）命令 ==========
+                elif action == "precog_start":
+                    result = self.precog_start()
+                elif action == "precog_feed":
+                    result = self.precog_feed(command.get("audio_data"))
+                elif action == "precog_abort":
+                    result = self.precog_abort()
                 elif action == "stream_init":
                     session_id = command.get("session_id")
                     options = command.get("options", {})

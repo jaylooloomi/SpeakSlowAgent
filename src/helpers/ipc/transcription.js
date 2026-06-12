@@ -58,6 +58,31 @@ module.exports = function register(ctx) {
     return await ctx.sherpaManager.transcribeAudio(audioData, options);
   });
 
+  // 邊錄邊算（precog）：錄音中把已閉合語音段先解碼，停止時只剩尾段
+  ipcMain.handle("precog-start", async () => {
+    try {
+      return await ctx.sherpaManager.precogStart();
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle("precog-feed", async (event, audioB64) => {
+    try {
+      return await ctx.sherpaManager.precogFeed(audioB64);
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle("precog-abort", async () => {
+    try {
+      return await ctx.sherpaManager.precogAbort();
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
   // 串流辨識 API (Zipformer Transducer)
   ipcMain.handle("streaming-start", async (event, options = {}) => {
     try {

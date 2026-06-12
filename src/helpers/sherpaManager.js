@@ -874,6 +874,28 @@ class SherpaManager {
     }
   }
 
+  // ===== 邊錄邊算（precog）=====
+  // 錄音進行中先把已講完的段落解碼掉（同一顆 Paraformer，精度零損失），
+  // 停止時 transcribeAudio 帶 use_precog 取用結果 → 長講停止延遲降一個數量級。
+  async precogStart() {
+    if (!this.serverReady) return { success: false, error: "服務器未就緒" };
+    return await this._sendServerCommand({ action: "precog_start" });
+  }
+
+  async precogFeed(audioB64) {
+    if (!this.serverReady) return { success: false, error: "服務器未就緒" };
+    return await this._sendServerCommand({ action: "precog_feed", audio_data: audioB64 });
+  }
+
+  async precogAbort() {
+    if (!this.serverReady) return { success: true };
+    try {
+      return await this._sendServerCommand({ action: "precog_abort" });
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
   /**
    * 發送音頻數據到串流會話
    * @param {string} audioData - Base64 編碼的音頻數據
