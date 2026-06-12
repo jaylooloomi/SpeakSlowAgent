@@ -20,6 +20,17 @@
     "preview": "cd src && vite preview",
     "clean": "node cleanup.js && rm -rf python"
   },
+  "electronmon": {
+    "patterns": [
+      "!dist/**",
+      "!build_pyi/**",
+      "!build/**",
+      "!web/**",
+      "!poc-sherpa/**",
+      "!assets/logo-build/**",
+      "!.venv/**"
+    ]
+  },
   "keywords": [
     "dictation",
     "speech-to-text",
