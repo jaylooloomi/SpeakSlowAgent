@@ -1763,6 +1763,9 @@ if __name__ == "__main__":
     try:
         sys.stdout.reconfigure(encoding="utf-8")
         sys.stderr.reconfigure(encoding="utf-8")
+        # stdin 也要 UTF-8：打包 exe 預設用系統碼頁(Big5)讀 stdin，含中文的指令
+        #（text_transform 簡繁、tts 念出來）會被解成 surrogate 而出錯。
+        sys.stdin.reconfigure(encoding="utf-8")
     except Exception:
         pass
 
