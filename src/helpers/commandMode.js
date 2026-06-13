@@ -139,8 +139,13 @@ async function applyToSelection(ctx, label, producer) {
   // 1) 記住使用者原本的剪貼簿，最後還原
   const userClipboard = clipboard.readText();
 
-  // 2) 還原焦點到剛剛打字的視窗 + Ctrl+C，把選取抓進剪貼簿
+  // 2) 哨兵：先清空剪貼簿。若等下 Ctrl+C 沒抓到選取（焦點跑掉/根本沒選），
+  //    剪貼簿會維持空字串 → 正確判定「沒選到」，而不是誤吃上一次殘留的結果。
+  clipboard.writeText("");
+
+  // 3) 還原焦點到剛剛打字的視窗 + Ctrl+C，把選取抓進剪貼簿
   if (!clipboardManager.focusAndCopyFast()) {
+    clipboard.writeText(userClipboard);
     return { matched: true, success: false, label, error: "無法複製選取（PowerShell 未就緒）" };
   }
   await delay(220);
@@ -277,7 +282,9 @@ async function runSingleCommand(ctx, text) {
   if (cmd.kind === "speak") {
     // 朗讀選取：抓選取 → 唸出來（不貼回去，唸完還原剪貼簿）
     const userClipboard = clipboard.readText();
+    clipboard.writeText(""); // 哨兵：沒抓到選取時剪貼簿維持空，才不會誤念上次殘留的結果
     if (!ctx.clipboardManager.focusAndCopyFast()) {
+      clipboard.writeText(userClipboard);
       return { matched: true, success: false, label: cmd.label, error: "無法複製選取（PowerShell 未就緒）" };
     }
     await delay(220);
@@ -316,6 +323,10 @@ async function runVoiceCommand(ctx, text) {
   let lastResult = null; // 最近一次轉換／翻譯的結果文字
   for (const seg of segments) {
     const cmd = matchCommand(seg);
+    // 指令流裡「沒對到固定指令」的段落一律跳過，不丟 freeform。
+    // 這樣口誤/雜訊混進來（例：「念出來。他媽卡鍵了」）不會把垃圾餵給 AI。
+    //（要用自由指令，請單獨講那一句，別跟其他指令串在一起。）
+    if (!cmd) continue;
     // 「複製」緊接在轉換之後：直接把已知結果寫進剪貼簿，不靠選取+Ctrl+C（最可靠）
     if (cmd && cmd.kind === "key" && cmd.keys === "^c" && lastResult != null) {
       try { clipboard.writeText(lastResult); } catch (e) { /* ignore */ }
