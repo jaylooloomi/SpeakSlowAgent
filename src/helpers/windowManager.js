@@ -352,6 +352,10 @@ class WindowManager {
   setMiniMode(enabled) {
     if (!this.mainWindow || this.mainWindow.isDestroyed()) return { success: false };
     const { screen } = require("electron");
+    // 變形前先隱藏：透明視窗改 bounds 後，「離開的舊位置」會留殘影
+    //（DWM 不清、底下的 app 不重繪就一直掛著）。hide 會強迫合成器清掉
+    // 整個舊表面，show 之後只有新位置有像素。
+    this.mainWindow.hide();
     this.mainWindow.setResizable(true);
     if (enabled) {
       this._preMiniBounds = this.mainWindow.getBounds();
