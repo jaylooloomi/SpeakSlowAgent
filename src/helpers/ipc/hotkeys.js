@@ -1,4 +1,5 @@
 const { ipcMain } = require("electron");
+const { stopSpeaking } = require("../tts");
 
 module.exports = function register(ctx) {
   // 热键管理 - 添加发送者跟踪机制
@@ -239,6 +240,8 @@ module.exports = function register(ctx) {
         },
         onCancelRecording: () => {
           ctx.logger.info('TypeLess: 觸發取消錄音 (Esc)');
+          // Esc 也順手停掉正在朗讀的語音（念到一半想停）
+          try { stopSpeaking(); } catch (e) { /* ignore */ }
           // 隱藏錄音指示器視窗
           if (ctx.windowManager) {
             ctx.windowManager.hideTypelessIndicator();
