@@ -1,5 +1,17 @@
 // 简体中文翻译
 export default {
+  transcribe: {
+    title: '逐字稿',
+    drop: '拖音频进来，或点此选择',
+    formats: '支持 mp3 / wav / m4a / ogg / flac',
+    decoding: '解码中…',
+    empty: '逐字稿会出现在这里（可直接编辑）',
+    failed: '失败',
+    stop: '停止',
+    another: '换一个文件',
+    copy: '复制',
+    export: '导出 txt',
+  },
   // 应用名称
   appName: '声声慢',
 

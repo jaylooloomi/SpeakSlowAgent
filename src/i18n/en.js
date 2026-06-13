@@ -1,5 +1,17 @@
 // English translations
 export default {
+  transcribe: {
+    title: 'Transcript',
+    drop: 'Drop an audio file, or click to choose',
+    formats: 'mp3 / wav / m4a / ogg / flac',
+    decoding: 'Decoding…',
+    empty: 'The transcript will appear here (editable)',
+    failed: 'Failed',
+    stop: 'Stop',
+    another: 'Another file',
+    copy: 'Copy',
+    export: 'Export txt',
+  },
   // App name
   appName: 'SpeakSlow',
 

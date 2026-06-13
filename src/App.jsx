@@ -11,7 +11,7 @@ import { useTextProcessing } from "./hooks/useTextProcessing";
 import { useModelStatus } from "./hooks/useModelStatus";
 import { usePermissions } from "./hooks/usePermissions";
 import { useTranslation } from "./i18n";
-import { Mic, MicOff, Settings, Copy, Download, X, Pin, Minus, Sparkles, Minimize2, Maximize2 } from "lucide-react";
+import { Mic, MicOff, Settings, Copy, Download, X, Pin, Minus, Sparkles, Minimize2, Maximize2, FileText } from "lucide-react";
 import SettingsPanel from "./components/SettingsPanel";
 import { ModelDownloadProgress } from "./components/ui/model-status-indicator";
 
@@ -20,6 +20,9 @@ const SettingsPage = React.lazy(() => import('./settings.jsx').then(module => ({
 
 // 动态导入 TypeLess 指示器组件
 const TypelessIndicator = React.lazy(() => import('./components/TypelessIndicator'));
+
+// 逐字稿（上傳音檔轉文字）
+const TranscribeModal = React.lazy(() => import('./components/TranscribeModal'));
 
 
 // 声波图标组件（空闲/悬停状态）- 使用 React.memo 優化
@@ -351,6 +354,7 @@ export default function App() {
   const [showTextArea, setShowTextArea] = useState(false);
   const [stats, setStats] = useState(null); // 累計統計（次數 / 字數）
   const [showSettings, setShowSettings] = useState(false);
+  const [showTranscribe, setShowTranscribe] = useState(false); // 逐字稿視窗
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(true); // 視窗置頂狀態
   const [miniMode, setMiniMode] = useState(false); // 迷你模式（原地變身扁平浮窗）
@@ -1449,6 +1453,14 @@ export default function App() {
                 ✨AI
               </button>
             </Tooltip>
+            <Tooltip content={t('transcribe.title')} position="bottom">
+              <button
+                onClick={() => setShowTranscribe(true)}
+                className="p-1.5 hover:bg-white/70 dark:hover:bg-gray-700/70 rounded-lg transition-colors"
+              >
+                <FileText className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+              </button>
+            </Tooltip>
             <Tooltip content={t('app.settings')} position="bottom">
               <button
                 onClick={handleOpenSettings}
@@ -1627,6 +1639,11 @@ export default function App() {
       {/* 设置面板 */}
       {showSettings && (
         <SettingsPanel onClose={() => setShowSettings(false)} />
+      )}
+      {showTranscribe && (
+        <React.Suspense fallback={null}>
+          <TranscribeModal onClose={() => setShowTranscribe(false)} />
+        </React.Suspense>
       )}
     </div>
   );
