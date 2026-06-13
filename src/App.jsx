@@ -373,6 +373,14 @@ export default function App() {
           setMiniMode(mini);
         }
       } catch (e) { /* ignore */ }
+      try {
+        // 同理校正操作模式：主行程是真實來源（HMR/重載後膠囊與藥丸才不會一藍一紅）
+        const cmd = await window.electronAPI?.getCommandMode?.();
+        if (!cancelled && typeof cmd === 'boolean') {
+          commandModeRef.current = cmd;
+          setCommandMode(cmd);
+        }
+      } catch (e) { /* ignore */ }
     })();
     return () => { cancelled = true; };
   }, []);
