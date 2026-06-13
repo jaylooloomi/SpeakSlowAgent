@@ -11,6 +11,10 @@ export const LEVELS = [
   { min: 50000,  emoji: '✍️', message: '可以出書了，書名就叫《我說的》', title: '出書在即' },
   { min: 100000, emoji: '🏛️', message: '你的語錄比孔子還多', title: '一代宗師' },
   { min: 300000, emoji: '🌟', message: '傳說中的話癆本癆，致敬！', title: '話癆傳說' },
+  { min: 500000, emoji: '🏆', message: '五十萬字！這數字我光看都喘', title: '金口玉言' },
+  { min: 1000000, emoji: '👑', message: '一百萬字達成，你的嘴是永動機', title: '百萬言王' },
+  { min: 3000000, emoji: '🐉', message: '話多到驚動天庭，言出法隨', title: '言出法隨' },
+  { min: 10000000, emoji: '🌌', message: '宇宙都裝不下你的話了，封頂啦', title: '話癆奇點' },
 ];
 
 // 取得目前字數所在的等級 index
