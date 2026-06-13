@@ -1421,7 +1421,7 @@ export default function App() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <img src="./icon.png" alt="" className="w-5 h-5 rounded-md shrink-0" draggable="false" />
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 brand-title">
+              <h1 className="brand-title text-xl font-bold text-gray-900 dark:text-gray-100">
                 {t('appName')}
               </h1>
               {commandMode && (
