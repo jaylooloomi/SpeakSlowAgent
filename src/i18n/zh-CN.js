@@ -333,6 +333,7 @@ export default {
     commandModeOff: '操作模式：关',
     commandModeBadge: '操作模式',
     commandListening: '听指令...',
+    commandRescued: '改为听写（这段照打出来）',
     commandDone: '✓ {label}',
     commandFailed: '{label}：{error}',
     commandUnknown: '没有对应指令',

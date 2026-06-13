@@ -333,6 +333,7 @@ export default {
     commandModeOff: 'Command mode: OFF',
     commandModeBadge: 'Command',
     commandListening: 'Listening...',
+    commandRescued: 'Switched to dictation (this one types out)',
     commandDone: '✓ {label}',
     commandFailed: '{label}: {error}',
     commandUnknown: 'No matching command',

@@ -284,6 +284,7 @@ export default function App() {
   const [commandMode, setCommandMode] = useState(false); // 操作模式（語音指令，預設關閉）
   const commandModeRef = useRef(false); // 給 safePaste 閉包讀最新值，避免 stale
   const miniModeRef = useRef(false); // 給 showNotification 閉包讀目前是否迷你模式
+  const isRecordingRef = useRef(false); // 給快捷鍵閉包讀「目前是否正在錄音」
   const [miniFlash, setMiniFlash] = useState(null); // 迷你模式：在小條上閃一下的訊息（取代浮動 toast）
   const miniFlashTimer = useRef(null);
   const [aiOptimizationEnabled, setAiOptimizationEnabled] = useState(false); // AI 優化狀態
@@ -496,6 +497,8 @@ export default function App() {
   const isRecording = streamingMode ? isRecordingStreaming : isRecordingNormal;
   const isRecordingProcessing = streamingMode ? isProcessingStreaming : isRecordingProcessingNormal;
   const recordingError = streamingMode ? streamingError : recordingErrorNormal;
+  // 同步錄音狀態到 ref（切換操作模式的「鬼切」判斷要讀最新值）
+  useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
 
   // 統一的錄音函數
   const startRecording = useCallback(() => {
@@ -937,17 +940,25 @@ export default function App() {
             handleCopyLastResult();
             break;
           case 'toggle-command-mode': {
-            // 鬼轉：切換鍵若用到右 Ctrl 會同時誤觸錄音，這裡把那一下錄音取消掉
-            //（你明顯是要切模式，不是要錄音）
-            handleCancelRecording();
             const next = !commandModeRef.current;
+            const recording = isRecordingRef.current;
+            let rescued = false;
+            if (recording && next) {
+              // 要「開」操作模式時還在錄音 → 多半是右 Ctrl 撞出來的誤觸錄音 → 取消它
+              handleCancelRecording();
+            } else if (recording && !next) {
+              // 鬼切：錄音中要「關」操作模式 → 不取消，讓這段直接變聽寫
+              //（commandMode 轉 false，放開後 safePaste 走正常貼上，不當指令）
+              rescued = true;
+            }
             commandModeRef.current = next;
             setCommandMode(next);
             // 鏡像到主行程 → 廣播給錄音指示器藥丸（讓它變藍/紅）
             try { window.electronAPI?.setCommandMode?.(next); } catch (e) { /* ignore */ }
-            // 開/關都用中性黑字（綠色、藍色都嫌突兀；藍色由膠囊邊框自己表達）
             showNotification('info',
-              next ? t('panel.commandModeOn') : t('panel.commandModeOff'));
+              rescued ? t('panel.commandRescued')
+                : next ? t('panel.commandModeOn')
+                : t('panel.commandModeOff'));
             break;
           }
           default:
