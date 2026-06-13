@@ -352,37 +352,41 @@ class WindowManager {
   setMiniMode(enabled) {
     if (!this.mainWindow || this.mainWindow.isDestroyed()) return { success: false };
     const { screen } = require("electron");
-    // 變形前先隱藏：透明視窗改 bounds 後，「離開的舊位置」會留殘影
-    //（DWM 不清、底下的 app 不重繪就一直掛著）。hide 會強迫合成器清掉
-    // 整個舊表面，show 之後只有新位置有像素。
-    this.mainWindow.hide();
-    // hide 與 show 不能同一拍：DWM 需要一個合成幀才會真正丟棄舊表面，
-    // 否則舊位置的像素仍會殘留在畫面上（實測 hide+show 同步呼叫仍有殘影）。
+    const win = this.mainWindow;
+    if (enabled) this._preMiniBounds = win.getBounds();
+
+    // 透明視窗改 bounds 會在「離開的舊位置」留殘影（DWM 不清、底下的 app
+    // 不重繪就一直掛著）。hide/show 在某些機器上仍清不乾淨。
+    // 改用 opacity 流程：先把整個圖層 alpha 壓成 0 —— 此時視窗還在舊位置，
+    // DWM 被迫把舊區域後面的桌面重繪一次（殘影源頭就此清掉）；接著才移動 /
+    // 變形，最後 alpha 拉回。舊像素無法在一次 opacity flush 後存活。
+    win.setOpacity(0);
     setTimeout(() => {
-      if (!this.mainWindow || this.mainWindow.isDestroyed()) return;
-      this.mainWindow.setResizable(true);
+      if (!win || win.isDestroyed()) return;
+      win.setResizable(true);
       if (enabled) {
         const wa = screen.getPrimaryDisplay().workArea;
         const w = 300;
         const h = 64;
-        this.mainWindow.setMinimumSize(w, h);
-        this.mainWindow.setBounds({
+        win.setMinimumSize(w, h);
+        win.setBounds({
           x: wa.x + wa.width - w - 16,
           y: wa.y + wa.height - h - 16,
           width: w,
           height: h,
         });
       } else if (this._preMiniBounds) {
-        this.mainWindow.setMinimumSize(472, 470);
-        this.mainWindow.setBounds(this._preMiniBounds);
+        win.setMinimumSize(472, 470);
+        win.setBounds(this._preMiniBounds);
       }
-      this.mainWindow.setResizable(false);
-      this.mainWindow.show();
+      win.setResizable(false);
+      try { win.webContents.invalidate(); } catch (e) { /* ignore */ }
+      // 再給一個合成幀，確認新位置已畫好才淡回，避免淡回瞬間又抓到舊幀。
       setTimeout(() => {
-        try { this.mainWindow.webContents.invalidate(); } catch (e) { /* ignore */ }
-      }, 60);
-    }, 90);
-    if (enabled) this._preMiniBounds = this.mainWindow.getBounds();
+        if (!win || win.isDestroyed()) return;
+        win.setOpacity(1);
+      }, 50);
+    }, 110);
     return { success: true, mini: enabled };
   }
 
