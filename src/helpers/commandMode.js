@@ -150,12 +150,43 @@ async function applyToSelection(ctx, label, producer) {
   return { matched: true, success: true, label };
 }
 
-// 指令流：把一句話依連接詞 / 標點拆成多段，依序執行（例：「全選然後翻成英文」）
+// 開頭若命中按鍵指令觸發詞，回傳該觸發詞（取最長），否則 null
+const KEY_COMMANDS = BUILTIN_COMMANDS.filter((c) => c.kind === "key");
+function keyTriggerAtStart(seg) {
+  let best = null;
+  for (const cmd of KEY_COMMANDS) {
+    for (const trig of cmd.triggers) {
+      if (seg.startsWith(trig) && (!best || trig.length > best.length)) best = trig;
+    }
+  }
+  return best;
+}
+
+// 指令流：把一句話拆成多段依序執行。
+// 1) 先依連接詞 / 標點 / 空白粗拆（「全選然後翻成英文」）。
+// 2) 再對每段「貪婪剝掉開頭的按鍵指令」，這樣就算沒講連接詞也能拆
+//    （「全選翻譯成英文」→ 全選 + 翻譯成英文）。按鍵指令是前置動作，
+//    翻譯／AI／簡繁是吃選取的尾段動作，故只剝開頭的按鍵指令。
 function splitCommands(text) {
-  return (text || "")
-    .split(/然後再|然後|接著|再來|之後|[，,、；;。]/)
+  const rough = (text || "")
+    .split(/然後再|然後|接著|再來|之後|[，,、；;。\s]+/)
     .map((s) => s.trim())
     .filter(Boolean);
+  const out = [];
+  for (let seg of rough) {
+    let guard = 0;
+    while (seg && guard++ < 12) {
+      const trig = keyTriggerAtStart(seg);
+      if (trig && seg.length > trig.length) {
+        out.push(trig);
+        seg = seg.slice(trig.length).trim();
+      } else {
+        out.push(seg);
+        seg = "";
+      }
+    }
+  }
+  return out;
 }
 
 /**
