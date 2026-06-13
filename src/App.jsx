@@ -354,7 +354,9 @@ export default function App() {
       miniFlashTimer.current = setTimeout(() => setMiniFlash(null), 1000);
       return;
     }
-    toast[type](message, options);
+    // 'command' 不是 sonner 內建型別，正常面板退回中性 toast，避免 toast.command 崩潰
+    const toastFn = typeof toast[type] === 'function' ? toast[type] : toast;
+    toastFn(message, options);
   }, [notificationsEnabled]);
 
   // 同步 miniMode 到 ref（showNotification 閉包要讀最新值）
@@ -940,7 +942,8 @@ export default function App() {
             setCommandMode(next);
             // 鏡像到主行程 → 廣播給錄音指示器藥丸（讓它變藍/紅）
             try { window.electronAPI?.setCommandMode?.(next); } catch (e) { /* ignore */ }
-            showNotification(next ? 'success' : 'info',
+            // 開→藍色（配合操作模式主題色，不用綠色才不突兀）；關→中性黑
+            showNotification(next ? 'command' : 'info',
               next ? t('panel.commandModeOn') : t('panel.commandModeOff'));
             break;
           }
@@ -1164,6 +1167,7 @@ export default function App() {
       error: 'text-red-500 dark:text-red-400',
       warning: 'text-amber-500 dark:text-amber-400',
       info: 'text-gray-700 dark:text-gray-200',
+      command: 'text-sky-500 dark:text-sky-300',
     }[miniFlash.type] || 'text-gray-900 dark:text-white') : '';
     return (
       <div
@@ -1175,19 +1179,19 @@ export default function App() {
         style={{ WebkitAppRegion: 'drag' }}
       >
         <div className={`shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
-          isRecording ? 'bg-red-500 animate-pulse' : commandMode ? 'bg-sky-100 dark:bg-sky-900/40' : 'bg-gray-100 dark:bg-gray-800'
+          isRecording ? (commandMode ? 'bg-sky-400 animate-pulse' : 'bg-red-500 animate-pulse') : commandMode ? 'bg-sky-100 dark:bg-sky-900/40' : 'bg-gray-100 dark:bg-gray-800'
         }`}>
           <img src="./icon.png" alt="" className="w-7 h-7 rounded-md" draggable="false" />
         </div>
         <div className="flex-1 min-w-0">
           <div className={`text-[13px] font-semibold leading-tight ${
             miniFlash ? flashColor
-              : isRecording ? 'text-red-500 dark:text-red-400'
+              : isRecording ? (commandMode ? 'text-sky-500 dark:text-sky-300' : 'text-red-500 dark:text-red-400')
               : commandMode ? 'text-sky-500 dark:text-sky-300'
               : 'text-gray-900 dark:text-white'
           }`}>
             {miniFlash ? miniFlash.message
-              : isRecording ? t('panel.recordingIndicator')
+              : isRecording ? (commandMode ? t('panel.commandListening') : t('panel.recordingIndicator'))
               : (isRecordingProcessing || isOptimizing) ? t('app.processing')
               : commandMode ? t('panel.commandModeBadge')
               : t('panel.miniIdle')}
