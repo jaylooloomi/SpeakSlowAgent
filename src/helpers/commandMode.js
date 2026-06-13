@@ -39,7 +39,21 @@ function normalize(text) {
 function matchCommand(text) {
   const norm = normalize(text);
   if (!norm) return null;
+
+  // 簡繁互轉：用關鍵詞「繁體 / 簡體」判斷目標，容忍各種動詞講法
+  //（轉成 / 轉換成 / 變成 / 弄成 / 轉為…都行，不要求觸發詞連續出現）
+  const lastOf = (...ws) => Math.max(...ws.map((w) => norm.lastIndexOf(w)));
+  const tradIdx = lastOf("繁體", "繁体", "正體", "正体");
+  const simpIdx = lastOf("簡體", "简体");
+  if (tradIdx !== -1 || simpIdx !== -1) {
+    // 兩者都提到時，取「後面出現的」當目標（例：簡體轉繁體 → 繁體）
+    const mode = tradIdx >= simpIdx ? "to_traditional" : "to_simplified";
+    return BUILTIN_COMMANDS.find((c) => c.mode === mode) || null;
+  }
+
+  // 其他指令（未來擴充）：觸發詞子字串比對
   for (const cmd of BUILTIN_COMMANDS) {
+    if (cmd.mode === "to_traditional" || cmd.mode === "to_simplified") continue;
     for (const trig of cmd.triggers) {
       if (norm.includes(normalize(trig))) return cmd;
     }
