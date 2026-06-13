@@ -262,12 +262,15 @@ _EMOJI_MAP = {
 }
 _EMOJI_RE = re.compile(
     "(" + "|".join(sorted(map(re.escape, _EMOJI_MAP.keys()), key=len, reverse=True)) + ")"
-    + "的?(?:表情符號|表情|符號|emoji)",
+    # 名字與「表情」之間、以及「表情」之後，標點模型常塞句點 → 一併吃掉。
+    # 「表」常被聽成「錶」，一併認。
+    + r"[。，、！？\s]{0,3}的?(?:[表錶]情符號|[表錶]情|符號|emoji)[。，、！？\s]?",
     re.I,
 )
 
 def apply_emoji(text):
-    """把「X表情 / X符號」換成對應 emoji（X 要在表中，否則整段保留不動）。"""
+    """把「X表情 / X符號」換成對應 emoji（X 要在表中，否則整段保留不動）。
+    容忍標點模型在中間/結尾塞的句點，並認「錶」=「表」。"""
     if not text:
         return text
     return _EMOJI_RE.sub(lambda m: _EMOJI_MAP.get(m.group(1), m.group(0)), text)
