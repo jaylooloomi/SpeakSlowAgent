@@ -116,6 +116,19 @@ export default {
     windowControlDesc: 'Configure always-on-top and system tray behavior',
     windowOpacity: 'Window Opacity',
     windowOpacityDesc: 'Make the panel semi-transparent (mini and full panel share this) so you can see through it',
+    commandSection: 'Command Mode / Read Aloud',
+    commandSectionDesc: 'Read-aloud voice and behavior for command mode (toggle with Ctrl+Shift+K)',
+    ttsVoice: 'Read-aloud Voice',
+    ttsVoiceDesc: 'Voice used by the read-aloud command',
+    ttsVoiceHsiaoChen: 'Female - HsiaoChen (gentle)',
+    ttsVoiceHsiaoYu: 'Female - HsiaoYu',
+    ttsVoiceYunJhe: 'Male - YunJhe',
+    ttsRate: 'Read-aloud Speed',
+    ttsRateSlow: 'Slow',
+    ttsRateNormal: 'Normal',
+    ttsRateFast: 'Fast',
+    freeformCommand: 'Freeform commands (say anything)',
+    freeformCommandDesc: 'When nothing matches a fixed command, treat the whole utterance as an AI instruction on the selection. Turn off to save AI credits and avoid misfires',
     alwaysOnTop: 'Always on Top',
     alwaysOnTopDesc: 'Keep the app window above other windows',
     alwaysOnTopEnabled: 'Always on top enabled',
@@ -184,6 +197,10 @@ export default {
         copyLast: {
           name: 'Copy Last Result',
           description: 'Copy the most recent transcription result'
+        },
+        toggleCommandMode: {
+          name: 'Toggle command mode',
+          description: 'Turn voice command mode on/off'
         }
       }
     },

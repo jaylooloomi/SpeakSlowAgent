@@ -17,6 +17,10 @@ const HOTKEY_ACTIONS = {
     nameKey: 'settings.hotkeysTab.actions.copyLast.name',
     descriptionKey: 'settings.hotkeysTab.actions.copyLast.description',
   },
+  'toggle-command-mode': {
+    nameKey: 'settings.hotkeysTab.actions.toggleCommandMode.name',
+    descriptionKey: 'settings.hotkeysTab.actions.toggleCommandMode.description',
+  },
 };
 
 // 格式化快捷鍵顯示

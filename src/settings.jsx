@@ -144,6 +144,12 @@ const SettingsPage = () => {
     try { await window.electronAPI?.setWindowOpacity?.(value); } catch (e) { /* ignore */ }
   };
 
+  // 通用：改一個設定值並即時存檔（給下拉選單等用）
+  const handleSettingChange = async (key, value) => {
+    setSettings(prev => ({ ...prev, [key]: value }));
+    try { await window.electronAPI?.setSetting?.(key, value); } catch (e) { /* ignore */ }
+  };
+
   // 处理开关切换并自动保存
   const handleToggleChange = async (key, value) => {
     setSettings(prev => ({
@@ -738,6 +744,83 @@ const SettingsPage = () => {
                     />
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 操作模式 / 朗讀設定 */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 mb-6">
+            <div className="p-6 space-y-5">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 chinese-title">
+                  {t('settings.commandSection')}
+                </h2>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  {t('settings.commandSectionDesc')}
+                </p>
+              </div>
+
+              {/* 朗讀語音 */}
+              <div>
+                <label className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                  {t('settings.ttsVoice')}
+                </label>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-1.5">
+                  {t('settings.ttsVoiceDesc')}
+                </p>
+                <select
+                  value={settings.tts_voice || 'zh-TW-HsiaoChenNeural'}
+                  onChange={(e) => handleSettingChange('tts_voice', e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                >
+                  <option value="zh-TW-HsiaoChenNeural">{t('settings.ttsVoiceHsiaoChen')}</option>
+                  <option value="zh-TW-HsiaoYuNeural">{t('settings.ttsVoiceHsiaoYu')}</option>
+                  <option value="zh-TW-YunJheNeural">{t('settings.ttsVoiceYunJhe')}</option>
+                </select>
+              </div>
+
+              {/* 朗讀語速 */}
+              <div>
+                <label className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                  {t('settings.ttsRate')}
+                </label>
+                <select
+                  value={settings.tts_rate || '+0%'}
+                  onChange={(e) => handleSettingChange('tts_rate', e.target.value)}
+                  className="mt-1.5 w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                >
+                  <option value="-25%">{t('settings.ttsRateSlow')}</option>
+                  <option value="+0%">{t('settings.ttsRateNormal')}</option>
+                  <option value="+25%">{t('settings.ttsRateFast')}</option>
+                </select>
+              </div>
+
+              {/* 自由指令開關 */}
+              <div className="flex items-center justify-between">
+                <div className="pr-3">
+                  <label className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                    {t('settings.freeformCommand')}
+                  </label>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {t('settings.freeformCommandDesc')}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={settings.command_freeform_enabled !== false}
+                  onClick={() => handleToggleChange('command_freeform_enabled', settings.command_freeform_enabled === false)}
+                  className={`${
+                    settings.command_freeform_enabled !== false ? 'bg-sky-500' : 'bg-gray-300 dark:bg-gray-600'
+                  } relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`${
+                      settings.command_freeform_enabled !== false ? 'translate-x-4' : 'translate-x-0'
+                    } inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                  />
+                </button>
               </div>
             </div>
           </div>

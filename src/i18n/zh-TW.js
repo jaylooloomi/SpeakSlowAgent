@@ -116,6 +116,19 @@ export default {
     windowControlDesc: '設定視窗置頂與系統托盤行為',
     windowOpacity: '視窗透明度',
     windowOpacityDesc: '讓面板半透明（迷你與一般面板共用），看得到底下的東西',
+    commandSection: '操作模式 / 朗讀',
+    commandSectionDesc: '語音指令模式（Ctrl+Shift+K 切換）的朗讀語音與行為',
+    ttsVoice: '朗讀語音',
+    ttsVoiceDesc: '「念出來」指令使用的語音',
+    ttsVoiceHsiaoChen: '女聲・曉臻（溫柔）',
+    ttsVoiceHsiaoYu: '女聲・曉雨',
+    ttsVoiceYunJhe: '男聲・雲哲',
+    ttsRate: '朗讀語速',
+    ttsRateSlow: '慢',
+    ttsRateNormal: '正常',
+    ttsRateFast: '快',
+    freeformCommand: '自由指令（講什麼做什麼）',
+    freeformCommandDesc: '沒對到固定指令時，把整句話當成給 AI 的指示套用在選取文字上。關閉可省 AI 額度、避免誤觸',
     alwaysOnTop: '視窗置頂',
     alwaysOnTopDesc: '讓應用程式視窗保持在其他視窗之上',
     alwaysOnTopEnabled: '視窗置頂已開啟',
@@ -184,6 +197,10 @@ export default {
         copyLast: {
           name: '複製上次結果',
           description: '複製最近一次辨識結果'
+        },
+        toggleCommandMode: {
+          name: '切換操作模式',
+          description: '開／關語音指令模式（操作模式）'
         }
       }
     },

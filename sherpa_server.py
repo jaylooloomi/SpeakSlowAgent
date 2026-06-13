@@ -1665,6 +1665,7 @@ class SherpaServer:
                     # 操作模式「念出來」：Edge 神經網路語音（線上、免費、好聽），回傳 base64 MP3
                     tts_text = command.get("text", "") or ""
                     voice = command.get("voice", "zh-TW-HsiaoChenNeural")
+                    rate = command.get("rate", "+0%")
                     if not tts_text.strip():
                         result = {"success": False, "error": "沒有文字可朗讀"}
                     else:
@@ -1672,7 +1673,7 @@ class SherpaServer:
                             import edge_tts, asyncio, base64
 
                             async def _synth():
-                                comm = edge_tts.Communicate(tts_text, voice)
+                                comm = edge_tts.Communicate(tts_text, voice, rate=rate)
                                 buf = bytearray()
                                 async for chunk in comm.stream():
                                     if chunk.get("type") == "audio":

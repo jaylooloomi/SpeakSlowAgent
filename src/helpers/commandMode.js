@@ -5,8 +5,17 @@ const { speakSapi } = require("./tts");
 // 朗讀：先試 Edge 神經語音（好聽，走 sherpa server），失敗再退 Windows SAPI（離線）。
 // Edge 回傳 base64 MP3 → 丟給渲染端用 Audio 播（可被 Esc 停）。
 async function speakText(ctx, text, label) {
+  // 讀使用者設定的語音 / 語速（沒有就用預設）
+  let voice = "zh-TW-HsiaoChenNeural";
+  let rate = "+0%";
   try {
-    const res = await ctx.sherpaManager.tts(text);
+    if (ctx.databaseManager) {
+      voice = ctx.databaseManager.getSetting("tts_voice", voice) || voice;
+      rate = ctx.databaseManager.getSetting("tts_rate", rate) || rate;
+    }
+  } catch (e) { /* 用預設 */ }
+  try {
+    const res = await ctx.sherpaManager.tts(text, voice, rate);
     if (res && res.success && res.audio_b64) {
       const win = ctx.windowManager && ctx.windowManager.mainWindow;
       if (win && !win.isDestroyed()) win.webContents.send("tts-play", res.audio_b64);
@@ -227,7 +236,14 @@ function freeformPrompt(instruction, selection) {
 async function runSingleCommand(ctx, text) {
   const cmd = matchCommand(text);
   if (!cmd) {
-    if (ctx.aiProcessor && text && text.trim()) {
+    // 自由指令（freeform）可被使用者關掉 → 關了就不丟 AI（省額度、零誤觸）
+    let freeformOn = true;
+    try {
+      if (ctx.databaseManager) {
+        freeformOn = ctx.databaseManager.getSetting("command_freeform_enabled", true) !== false;
+      }
+    } catch (e) { /* 預設開 */ }
+    if (freeformOn && ctx.aiProcessor && text && text.trim()) {
       const instruction = text.trim();
       const label = "✨ " + (instruction.length > 14 ? instruction.slice(0, 14) + "…" : instruction);
       return await applyToSelection(ctx, label, (sel) =>

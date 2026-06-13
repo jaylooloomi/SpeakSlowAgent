@@ -884,9 +884,9 @@ class SherpaManager {
   }
 
   // 操作模式「念出來」：Edge 神經網路語音，回傳 base64 MP3
-  async tts(text, voice = "zh-TW-HsiaoChenNeural") {
+  async tts(text, voice = "zh-TW-HsiaoChenNeural", rate = "+0%") {
     if (!this.serverReady) return { success: false, error: "服務器未就緒" };
-    return await this._sendServerCommand({ action: "tts", text, voice });
+    return await this._sendServerCommand({ action: "tts", text, voice, rate });
   }
 
   async precogStart(profile = "standard") {
