@@ -5,30 +5,24 @@ const { clipboard } = require("electron");
  *
  * 設計界線（別讓它長肥）：
  *  - 預設關閉，不開的人完全感覺不到它。
- *  - 核心只做「扳機」：聽到觸發詞 → 抓選取 → 餵給轉換 → 貼回去。
- *  - 內建指令極少（目前只有簡繁互轉，因為 opencc 本來就在 sherpa server 裡）。
+ *  - 核心只做「扳機」：聽到觸發詞 → 抓選取 → 餵給某個轉換 → 貼回去取代。
+ *  - 內建指令極少：簡繁互轉（opencc，本來就在 sherpa server）＋ 翻譯（重用既有 AI 金鑰）。
  *    其他能力一律靠外部腳本（之後接 stdin/stdout 過濾器 / webhook），不在這裡擴張。
  *
- * 一條指令 = { triggers:[...], kind:'transform', mode:'to_traditional', label:'轉成繁體' }
+ * 一條指令 = { kind, label, mode|aiMode }
+ *   kind 'transform' → 走 sherpa opencc（mode: to_traditional / to_simplified）
+ *   kind 'translate' → 走 AI（aiMode: translate_en / translate_zh / translate_ja）
  */
 
-// 內建指令表（v0 玩具版，只有簡繁互轉）
 const BUILTIN_COMMANDS = [
-  {
-    triggers: ["轉成繁體", "轉為繁體", "變成繁體", "簡體變繁體", "簡轉繁", "轉繁體", "轉繁"],
-    kind: "transform",
-    mode: "to_traditional",
-    label: "轉成繁體",
-  },
-  {
-    triggers: ["轉成簡體", "轉為簡體", "變成簡體", "繁體變簡體", "繁轉簡", "轉簡體", "轉簡"],
-    kind: "transform",
-    mode: "to_simplified",
-    label: "轉成簡體",
-  },
+  { kind: "transform", mode: "to_traditional", label: "轉成繁體" },
+  { kind: "transform", mode: "to_simplified", label: "轉成簡體" },
+  { kind: "translate", aiMode: "translate_en", label: "翻成英文" },
+  { kind: "translate", aiMode: "translate_zh", label: "翻成中文" },
+  { kind: "translate", aiMode: "translate_ja", label: "翻成日文" },
 ];
 
-// 正規化辨識結果：去空白、去標點、轉小寫，方便「包含」比對
+// 正規化辨識結果：去空白、去標點、轉小寫，方便關鍵詞比對
 function normalize(text) {
   return (text || "")
     .replace(/[\s。，、！？；：．,.!?;:]/g, "")
@@ -39,25 +33,29 @@ function normalize(text) {
 function matchCommand(text) {
   const norm = normalize(text);
   if (!norm) return null;
-
-  // 簡繁互轉：用關鍵詞「繁體 / 簡體」判斷目標，容忍各種動詞講法
-  //（轉成 / 轉換成 / 變成 / 弄成 / 轉為…都行，不要求觸發詞連續出現）
   const lastOf = (...ws) => Math.max(...ws.map((w) => norm.lastIndexOf(w)));
+  const find = (pred) => BUILTIN_COMMANDS.find(pred) || null;
+
+  // 1) 簡繁互轉優先：用「繁體 / 簡體」關鍵詞判斷目標，動詞講法不限
   const tradIdx = lastOf("繁體", "繁体", "正體", "正体");
   const simpIdx = lastOf("簡體", "简体");
   if (tradIdx !== -1 || simpIdx !== -1) {
-    // 兩者都提到時，取「後面出現的」當目標（例：簡體轉繁體 → 繁體）
     const mode = tradIdx >= simpIdx ? "to_traditional" : "to_simplified";
-    return BUILTIN_COMMANDS.find((c) => c.mode === mode) || null;
+    return find((c) => c.mode === mode);
   }
 
-  // 其他指令（未來擴充）：觸發詞子字串比對
-  for (const cmd of BUILTIN_COMMANDS) {
-    if (cmd.mode === "to_traditional" || cmd.mode === "to_simplified") continue;
-    for (const trig of cmd.triggers) {
-      if (norm.includes(normalize(trig))) return cmd;
-    }
+  // 2) 翻譯：用語言關鍵詞判斷目標，取「後面出現的」當目標
+  //（例：「把日文翻成中文」→ 中文；容忍 翻成 / 翻譯成 / 轉成 各種講法）
+  const enIdx = lastOf("英文", "英語", "english");
+  const jaIdx = lastOf("日文", "日語", "日本語", "japanese");
+  const zhIdx = lastOf("中文", "chinese");
+  const maxIdx = Math.max(enIdx, jaIdx, zhIdx);
+  if (maxIdx !== -1) {
+    if (maxIdx === enIdx) return find((c) => c.aiMode === "translate_en");
+    if (maxIdx === jaIdx) return find((c) => c.aiMode === "translate_ja");
+    return find((c) => c.aiMode === "translate_zh");
   }
+
   return null;
 }
 
@@ -66,48 +64,48 @@ function delay(ms) {
 }
 
 /**
- * 執行一條轉換指令：抓選取 → 轉換 → 貼回去取代選取。
- * 全程重用既有的常駐 PowerShell（還原焦點 + SendKeys）與 sherpa opencc。
+ * 共用：對「目前選取的文字」套一個產生器，再把結果貼回去取代選取。
+ * @param ctx        IPC context（含 clipboardManager）
+ * @param producer   async (selection) => { success, text, error }
+ * @returns          { matched:true, success, label, error }
  */
-async function runTransform(ctx, cmd) {
-  const { clipboardManager, sherpaManager } = ctx;
+async function applyToSelection(ctx, label, producer) {
+  const { clipboardManager } = ctx;
 
   // 1) 記住使用者原本的剪貼簿，最後還原
   const userClipboard = clipboard.readText();
 
   // 2) 還原焦點到剛剛打字的視窗 + Ctrl+C，把選取抓進剪貼簿
-  const copied = clipboardManager.focusAndCopyFast();
-  if (!copied) {
-    return { matched: true, success: false, label: cmd.label, error: "無法複製選取（PowerShell 未就緒）" };
+  if (!clipboardManager.focusAndCopyFast()) {
+    return { matched: true, success: false, label, error: "無法複製選取（PowerShell 未就緒）" };
   }
-  await delay(220); // 等 Ctrl+C 寫入剪貼簿
+  await delay(220);
 
   const selection = clipboard.readText();
   if (!selection || selection.trim() === "") {
-    // 還原使用者原本的剪貼簿
     clipboard.writeText(userClipboard);
-    return { matched: true, success: false, label: cmd.label, error: "沒有選取到文字" };
+    return { matched: true, success: false, label, error: "沒有選取到文字" };
   }
 
-  // 3) 丟給 sherpa（opencc）轉換
-  let transformed;
+  // 3) 套用產生器（opencc / AI 翻譯）
+  let out;
   try {
-    const res = await sherpaManager.transformText(selection, cmd.mode);
-    if (!res || !res.success || typeof res.text !== "string") {
+    const res = await producer(selection);
+    if (!res || !res.success || typeof res.text !== "string" || res.text.trim() === "") {
       clipboard.writeText(userClipboard);
-      return { matched: true, success: false, label: cmd.label, error: (res && res.error) || "轉換失敗" };
+      return { matched: true, success: false, label, error: (res && res.error) || "處理失敗" };
     }
-    transformed = res.text;
+    out = res.text;
   } catch (e) {
     clipboard.writeText(userClipboard);
-    return { matched: true, success: false, label: cmd.label, error: e.message };
+    return { matched: true, success: false, label, error: e.message };
   }
 
-  // 4) 貼回去取代選取（pasteText 會自己還原焦點 + Ctrl+V）
+  // 4) 貼回去取代選取（pasteText 自己會還原焦點 + Ctrl+V）
   try {
-    await clipboardManager.pasteText(transformed);
+    await clipboardManager.pasteText(out);
   } catch (e) {
-    return { matched: true, success: false, label: cmd.label, error: "貼上失敗：" + e.message };
+    return { matched: true, success: false, label, error: "貼上失敗：" + e.message };
   }
 
   // 5) 蓋過 pasteText 的內部還原，把使用者「真正原本」的剪貼簿補回去
@@ -115,7 +113,7 @@ async function runTransform(ctx, cmd) {
     try { clipboard.writeText(userClipboard); } catch (e) { /* ignore */ }
   }, 700);
 
-  return { matched: true, success: true, label: cmd.label };
+  return { matched: true, success: true, label };
 }
 
 /**
@@ -125,7 +123,22 @@ async function runTransform(ctx, cmd) {
 async function runVoiceCommand(ctx, text) {
   const cmd = matchCommand(text);
   if (!cmd) return { matched: false };
-  if (cmd.kind === "transform") return await runTransform(ctx, cmd);
+
+  if (cmd.kind === "transform") {
+    return await applyToSelection(ctx, cmd.label, (sel) =>
+      ctx.sherpaManager.transformText(sel, cmd.mode)
+    );
+  }
+
+  if (cmd.kind === "translate") {
+    if (!ctx.aiProcessor) {
+      return { matched: true, success: false, label: cmd.label, error: "AI 未設定" };
+    }
+    return await applyToSelection(ctx, cmd.label, (sel) =>
+      ctx.aiProcessor.processTextWithAI(sel, cmd.aiMode)
+    );
+  }
+
   return { matched: false };
 }
 
