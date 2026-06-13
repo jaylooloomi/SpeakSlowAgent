@@ -178,15 +178,44 @@ const Tooltip = ({ children, content, position = "top" }) => {
 };
 
 // 文本显示区域组件 - 簡化版，只顯示一個結果
-// 移除了 isProcessing 時的載入文字，避免閃跳
-const TextDisplay = React.memo(({ originalText, processedText, scrollRef, t }) => {
+// 選取一段文字 → 跳候選詞 → 點一下換掉（點字改錯）
+const TextDisplay = React.memo(({ originalText, processedText, scrollRef, t, onApplyCorrection }) => {
   // 顯示的文字：優先顯示 AI 優化後的，沒有就顯示原始的
   const displayText = processedText || originalText;
+  const pRef = React.useRef(null);
+  const [fix, setFix] = React.useState(null); // {target,start,end,x,y,loading,suggestions}
+
+  const closeFix = React.useCallback(() => setFix(null), []);
+
+  const handleMouseUp = React.useCallback(async () => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !pRef.current) return;
+    const range = sel.getRangeAt(0);
+    // 選取必須落在這個 <p> 的單一文字節點內，offset 才等於字元位置
+    if (range.startContainer !== range.endContainer || range.startContainer.parentNode !== pRef.current) return;
+    const target = sel.toString();
+    if (!target.trim() || target.length > 20) return; // 太長就不是改錯字了
+    const rect = range.getBoundingClientRect();
+    const start = range.startOffset, end = range.endOffset;
+    setFix({ target, start, end, x: rect.left, y: rect.bottom, loading: true, suggestions: [] });
+    try {
+      const res = await window.electronAPI?.suggestCorrections?.(displayText, target);
+      setFix((f) => (f && f.target === target ? { ...f, loading: false, suggestions: res?.suggestions || [] } : f));
+    } catch (e) {
+      setFix((f) => (f ? { ...f, loading: false, suggestions: [] } : f));
+    }
+  }, [displayText]);
+
+  const pick = React.useCallback((word) => {
+    if (!fix) return;
+    const next = displayText.slice(0, fix.start) + word + displayText.slice(fix.end);
+    onApplyCorrection?.(next);
+    setFix(null);
+    try { window.getSelection()?.removeAllRanges(); } catch (e) {}
+  }, [fix, displayText, onApplyCorrection]);
 
   // 沒有文字就不顯示這個區塊
-  if (!displayText) {
-    return null;
-  }
+  if (!displayText) return null;
 
   return (
     <div className="fade-in mb-3">
@@ -194,6 +223,8 @@ const TextDisplay = React.memo(({ originalText, processedText, scrollRef, t }) =
       <div className="bg-white/90 dark:bg-gray-800/90 rounded-xl shadow-md border border-gray-200/70 dark:border-gray-700/60 overflow-hidden">
         <div ref={scrollRef} className="max-h-[120px] overflow-y-auto px-3.5 py-3 panel-scroll">
           <p
+            ref={pRef}
+            onMouseUp={handleMouseUp}
             className="chinese-content text-gray-800 dark:text-gray-200"
             style={{ fontSize: '14px', lineHeight: 1.7, letterSpacing: '0.02em', whiteSpace: 'pre-wrap' }}
           >
@@ -201,6 +232,37 @@ const TextDisplay = React.memo(({ originalText, processedText, scrollRef, t }) =
           </p>
         </div>
       </div>
+
+      {/* 改錯候選浮窗 */}
+      {fix && (
+        <>
+          <div className="fixed inset-0 z-40" onMouseDown={closeFix} style={{ WebkitAppRegion: 'no-drag' }} />
+          <div
+            className="fixed z-50 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-1.5 min-w-[140px] max-w-[240px]"
+            style={{ left: Math.min(fix.x, window.innerWidth - 250), top: fix.y + 6, WebkitAppRegion: 'no-drag' }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="px-3 py-1 text-[11px] text-gray-400 border-b border-gray-100 dark:border-gray-700 mb-1">
+              {t('panel.correctFor', { word: fix.target })}
+            </div>
+            {fix.loading ? (
+              <div className="px-3 py-2 text-xs text-gray-400">{t('panel.correctLoading')}</div>
+            ) : fix.suggestions.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-gray-400">{t('panel.correctNone')}</div>
+            ) : (
+              fix.suggestions.map((s, i) => (
+                <button
+                  key={i}
+                  onClick={() => pick(s)}
+                  className="block w-full text-left px-3 py-1.5 text-sm text-gray-800 dark:text-gray-200 hover:bg-sky-50 dark:hover:bg-sky-900/30"
+                >
+                  {s}
+                </button>
+              ))
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 });
@@ -708,6 +770,14 @@ export default function App() {
       window.onAIOptimizationComplete = null;
     };
   }, [handleRecordingComplete, handleAIOptimizationComplete]);
+
+  // 點字改錯：把面板裡的文字換成選好的候選，並同步到剪貼簿（方便重新貼上）
+  const handleApplyCorrection = useCallback((newText) => {
+    if (processedText) setProcessedText(newText);
+    else setOriginalText(newText);
+    try { window.electronAPI?.copyText?.(newText); } catch (e) { /* ignore */ }
+    showNotification('success', t('panel.correctApplied'));
+  }, [processedText, showNotification, t]);
 
   // 处理复制文本
   const handleCopyText = useCallback(async (text) => {
@@ -1518,6 +1588,7 @@ export default function App() {
               processedText={processedText}
               scrollRef={textScrollRef}
               t={t}
+              onApplyCorrection={handleApplyCorrection}
             />
           ) : (
             <IdlePlaceholder />

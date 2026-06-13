@@ -8,6 +8,37 @@ module.exports = function register(ctx) {
   ipcMain.handle("recovery-append", async (_e, b64) => recovery.append(b64));
   ipcMain.handle("recovery-end", async () => recovery.end());
 
+  // 點字改錯：給「選取的那段」3~5 個依上下文的正確候選（走 AI，本地 Ollama 免費）
+  ipcMain.handle("suggest-corrections", async (_event, sentence, target) => {
+    try {
+      if (!ctx.aiProcessor) return { success: false, error: "AI 未設定" };
+      const t = (target || "").trim();
+      if (!t) return { success: false, error: "沒有選取文字" };
+      const prompt =
+        "這是一段語音辨識結果，可能有同音字或聽錯的詞。\n" +
+        "句子：「" + (sentence || t) + "」\n" +
+        "其中「" + t + "」這部分使用者覺得可能辨識錯了。\n" +
+        "請依上下文，給 3~5 個最可能的「正確」候選（可含原樣），用 JSON 字串陣列輸出，" +
+        "例如 [\"申請\",\"深圳\"]。只輸出 JSON 陣列，不要任何其他文字。";
+      const res = await ctx.aiProcessor.processTextWithAI(t, "correct", prompt);
+      if (!res || !res.success || typeof res.text !== "string") {
+        return { success: false, error: (res && res.error) || "取得候選失敗" };
+      }
+      let arr = [];
+      try {
+        const m = res.text.match(/\[[\s\S]*\]/);
+        arr = m ? JSON.parse(m[0]) : [];
+      } catch (e) { arr = []; }
+      arr = (Array.isArray(arr) ? arr : [])
+        .filter((x) => typeof x === "string" && x.trim())
+        .map((x) => x.trim())
+        .slice(0, 6);
+      return { success: true, suggestions: arr };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
   // 操作模式：把一段辨識文字當指令派發（比對到才執行，否則回 matched:false）
   ipcMain.handle("run-voice-command", async (_event, text) => {
     try {
