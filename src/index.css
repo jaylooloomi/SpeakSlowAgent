@@ -893,3 +893,15 @@ html, body {
     transition: none;
   }
 }
+/* 迷你模式：長文字跑馬燈（內容重複兩份、平移一半寬度無縫循環） */
+@keyframes mini-marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.mini-marquee {
+  display: inline-flex;
+  gap: 2.5rem;
+  padding-right: 2.5rem;
+  white-space: nowrap;
+  animation: mini-marquee 12s linear infinite;
+}

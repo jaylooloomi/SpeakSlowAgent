@@ -1080,29 +1080,41 @@ export default function App() {
   // 迷你模式：扁平媒體浮窗版面（與主面板同一視窗，原地變身）
   if (miniMode) {
     const lastText = processedText || originalText;
+    const miniText = lastText || t('appName');
+    const shouldMarquee = miniText.length > 16; // 短文字不跑，長文字跑馬燈
     return (
       <div
-        className="h-screen w-screen flex items-center gap-3 px-3 bg-gray-900/95 rounded-xl border border-gray-700/70 shadow-2xl overflow-hidden select-none"
+        className="h-screen w-screen flex items-center gap-3 px-3 bg-white/95 dark:bg-gray-900/95 rounded-xl border border-gray-200 dark:border-gray-700/70 shadow-2xl overflow-hidden select-none"
         style={{ WebkitAppRegion: 'drag' }}
       >
         <div className={`shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
-          isRecording ? 'bg-red-500 animate-pulse' : 'bg-gray-800'
+          isRecording ? 'bg-red-500 animate-pulse' : 'bg-gray-100 dark:bg-gray-800'
         }`}>
           <img src="./icon.png" alt="" className="w-7 h-7 rounded-md" draggable="false" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className={`text-[13px] font-semibold leading-tight ${isRecording ? 'text-red-400' : 'text-white'}`}>
+          <div className={`text-[13px] font-semibold leading-tight ${isRecording ? 'text-red-500 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
             {isRecording ? t('panel.recordingIndicator') : (isRecordingProcessing || isOptimizing) ? t('app.processing') : t('panel.miniIdle')}
           </div>
-          <div className="text-[11px] text-gray-400 truncate leading-tight mt-0.5">
-            {lastText || t('appName')}
+          <div className="text-[11px] text-gray-500 dark:text-gray-400 leading-tight mt-0.5 overflow-hidden">
+            {shouldMarquee ? (
+              <div
+                className="mini-marquee"
+                style={{ animationDuration: `${Math.max(8, miniText.length * 0.45)}s` }}
+              >
+                <span>{miniText}</span>
+                <span>{miniText}</span>
+              </div>
+            ) : (
+              <span className="truncate block">{miniText}</span>
+            )}
           </div>
         </div>
         <button
           onClick={() => toggleMiniMode(false)}
           title={t('panel.miniExpand')}
           style={{ WebkitAppRegion: 'no-drag' }}
-          className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700/80 transition-colors"
+          className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/80 transition-colors"
         >
           <Maximize2 className="w-4 h-4" />
         </button>
