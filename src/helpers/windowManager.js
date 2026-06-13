@@ -10,6 +10,7 @@ class WindowManager {
     this.settingsWindow = null;
     this.typelessIndicatorWindow = null; // TypeLess 錄音指示器視窗
     this.isQuitting = false; // 用於判斷是否真正退出
+    this._miniRepaintTimer = null; // 迷你模式期間的低頻重繪心跳（防閒置鬼影）
   }
 
   // 設置 databaseManager（用於延遲初始化）
@@ -387,6 +388,24 @@ class WindowManager {
         win.setOpacity(1);
       }, 50);
     }, 110);
+
+    // 鬼影 B：透明 + 置頂視窗閒置時 Chromium 會節流不重畫，背後桌面（工作列
+    // 時鐘等）一變，DWM 就疊出半舊半新的撕裂畫面。進迷你模式時掛一個低頻
+    // 重繪心跳強制它重疊新幀；離開時關掉，避免大面板也跟著一直醒著（省電）。
+    if (this._miniRepaintTimer) {
+      clearInterval(this._miniRepaintTimer);
+      this._miniRepaintTimer = null;
+    }
+    if (enabled) {
+      this._miniRepaintTimer = setInterval(() => {
+        if (!this.mainWindow || this.mainWindow.isDestroyed()) {
+          clearInterval(this._miniRepaintTimer);
+          this._miniRepaintTimer = null;
+          return;
+        }
+        try { this.mainWindow.webContents.invalidate(); } catch (e) { /* ignore */ }
+      }, 1500);
+    }
     return { success: true, mini: enabled };
   }
 
