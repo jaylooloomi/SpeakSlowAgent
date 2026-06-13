@@ -334,6 +334,7 @@ export default {
     commandModeBadge: 'Command',
     commandListening: 'Listening...',
     commandRescued: 'Switched to dictation (this one types out)',
+    commandToggleIgnored: "Dictating — not switching (finish or press Esc first)",
     commandDone: '✓ {label}',
     commandFailed: '{label}: {error}',
     commandUnknown: 'No matching command',

@@ -334,6 +334,7 @@ export default {
     commandModeBadge: '操作模式',
     commandListening: '聽指令...',
     commandRescued: '改為聽寫（這段照打出來）',
+    commandToggleIgnored: '聽寫中，不切換（要切請先講完或按 Esc）',
     commandDone: '✓ {label}',
     commandFailed: '{label}：{error}',
     commandUnknown: '沒有對應指令',

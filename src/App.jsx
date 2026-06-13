@@ -285,6 +285,7 @@ export default function App() {
   const commandModeRef = useRef(false); // 給 safePaste 閉包讀最新值，避免 stale
   const miniModeRef = useRef(false); // 給 showNotification 閉包讀目前是否迷你模式
   const isRecordingRef = useRef(false); // 給快捷鍵閉包讀「目前是否正在錄音」
+  const recordingStartRef = useRef(0); // 本次錄音開始時間（分辨「真聽寫」vs「撞鍵空錄音」）
   const [miniFlash, setMiniFlash] = useState(null); // 迷你模式：在小條上閃一下的訊息（取代浮動 toast）
   const miniFlashTimer = useRef(null);
   const [aiOptimizationEnabled, setAiOptimizationEnabled] = useState(false); // AI 優化狀態
@@ -498,7 +499,10 @@ export default function App() {
   const isRecordingProcessing = streamingMode ? isProcessingStreaming : isRecordingProcessingNormal;
   const recordingError = streamingMode ? streamingError : recordingErrorNormal;
   // 同步錄音狀態到 ref（切換操作模式的「鬼切」判斷要讀最新值）
-  useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
+  useEffect(() => {
+    isRecordingRef.current = isRecording;
+    if (isRecording) recordingStartRef.current = Date.now();
+  }, [isRecording]);
 
   // 統一的錄音函數
   const startRecording = useCallback(() => {
@@ -942,13 +946,19 @@ export default function App() {
           case 'toggle-command-mode': {
             const next = !commandModeRef.current;
             const recording = isRecordingRef.current;
+            const elapsed = recording ? Date.now() - (recordingStartRef.current || 0) : 0;
+            // 聽寫到一半（已錄超過 0.5 秒）想切「去」指令模式 → 不准切，保護這段聽寫
+            //（沒人會念一念突然要下指令；這多半是誤按）
+            if (recording && next && elapsed >= 500) {
+              showNotification('info', t('panel.commandToggleIgnored'));
+              break;
+            }
             let rescued = false;
             if (recording && next) {
-              // 要「開」操作模式時還在錄音 → 多半是右 Ctrl 撞出來的誤觸錄音 → 取消它
+              // 仍在錄音卻要「開」、而且是極短錄音（<0.5s）→ 右 Ctrl 撞鍵的空錄音 → 取消
               handleCancelRecording();
             } else if (recording && !next) {
-              // 鬼切：錄音中要「關」操作模式 → 不取消，讓這段直接變聽寫
-              //（commandMode 轉 false，放開後 safePaste 走正常貼上，不當指令）
+              // 鬼切：指令模式錄音中要「關」→ 不取消，讓這段直接變聽寫照打出來
               rescued = true;
             }
             commandModeRef.current = next;
