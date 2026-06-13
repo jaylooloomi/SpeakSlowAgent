@@ -47,6 +47,16 @@ module.exports = function register(ctx) {
         .filter((x) => typeof x === "string" && x.trim())
         .map((x) => x.trim())
         .slice(0, 6);
+      // 本地 qwen 常吐簡體 → 統一轉繁體（與操作模式 AI 一致；text_transform 是純 opencc）
+      if (arr.length && ctx.sherpaManager?.transformText) {
+        try {
+          const conv = await ctx.sherpaManager.transformText(arr.join("\n"), "to_traditional");
+          if (conv && conv.success && typeof conv.text === "string") {
+            const lines = conv.text.split("\n").map((s) => s.trim()).filter(Boolean);
+            if (lines.length === arr.length) arr = lines;
+          }
+        } catch (e) { /* 轉換失敗就用原文 */ }
+      }
       return { success: true, suggestions: arr };
     } catch (error) {
       return { success: false, error: error.message };

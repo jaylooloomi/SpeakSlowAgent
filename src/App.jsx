@@ -1307,7 +1307,9 @@ export default function App() {
 
   const toggleMiniMode = async (enabled) => {
     if (enabled) {
-      // 縮小：先切成扁條版面、等一幀渲染完，再縮視窗（避免大版面被擠壓閃現）
+      // 縮小：先把正在浮動的 toast 收掉，否則大尺寸 toast 會留在小膠囊旁，比例全錯很醜
+      try { toast.dismiss(); } catch (e) { /* ignore */ }
+      // 先切成扁條版面、等一幀渲染完，再縮視窗（避免大版面被擠壓閃現）
       setMiniMode(true);
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       try { await window.electronAPI?.setMiniMode?.(true); } catch (e) { /* ignore */ }
