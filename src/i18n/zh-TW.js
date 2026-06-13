@@ -355,6 +355,8 @@ export default {
     correctLoading: '想候選中…',
     correctNone: '沒有候選',
     correctApplied: '已換字（也複製了）',
+    correctCustom: '自己輸入正確的字…',
+    correctRemembered: '已換字並記住：{from}→{to}（下次自動修）',
     commandListening: '聽指令...',
     commandRescued: '改為聽寫（這段照打出來）',
     commandToggleIgnored: '聽寫中，不切換（要切請先講完或按 Esc）',

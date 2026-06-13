@@ -355,6 +355,8 @@ export default {
     correctLoading: 'Thinking…',
     correctNone: 'No suggestions',
     correctApplied: 'Replaced (and copied)',
+    correctCustom: 'Type the correct word…',
+    correctRemembered: 'Replaced & remembered: {from}→{to} (auto-fixed next time)',
     commandListening: 'Listening...',
     commandRescued: 'Switched to dictation (this one types out)',
     commandToggleIgnored: "Dictating — not switching (finish or press Esc first)",

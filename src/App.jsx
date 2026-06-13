@@ -206,11 +206,14 @@ const TextDisplay = React.memo(({ originalText, processedText, scrollRef, t, onA
     }
   }, [displayText]);
 
+  const [custom, setCustom] = React.useState("");
   const pick = React.useCallback((word) => {
-    if (!fix) return;
-    const next = displayText.slice(0, fix.start) + word + displayText.slice(fix.end);
-    onApplyCorrection?.(next);
+    if (!fix || !word || !word.trim()) return;
+    const w = word.trim();
+    const next = displayText.slice(0, fix.start) + w + displayText.slice(fix.end);
+    onApplyCorrection?.(next, fix.target, w); // 帶上 (原, 改) → App 可記進字典
     setFix(null);
+    setCustom("");
     try { window.getSelection()?.removeAllRanges(); } catch (e) {}
   }, [fix, displayText, onApplyCorrection]);
 
@@ -221,7 +224,7 @@ const TextDisplay = React.memo(({ originalText, processedText, scrollRef, t, onA
     <div className="fade-in mb-3">
       {/* 卡片高度隨內容（一句話就扁扁的），超過上限才在卡片內捲動 */}
       <div className="bg-white/90 dark:bg-gray-800/90 rounded-xl shadow-md border border-gray-200/70 dark:border-gray-700/60 overflow-hidden">
-        <div ref={scrollRef} className="max-h-[120px] overflow-y-auto px-3.5 py-3 panel-scroll">
+        <div ref={scrollRef} className="h-[120px] overflow-y-auto px-3.5 py-3 panel-scroll">
           <p
             ref={pRef}
             onMouseUp={handleMouseUp}
@@ -247,8 +250,6 @@ const TextDisplay = React.memo(({ originalText, processedText, scrollRef, t, onA
             </div>
             {fix.loading ? (
               <div className="px-3 py-2 text-xs text-gray-400">{t('panel.correctLoading')}</div>
-            ) : fix.suggestions.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-gray-400">{t('panel.correctNone')}</div>
             ) : (
               fix.suggestions.map((s, i) => (
                 <button
@@ -260,6 +261,17 @@ const TextDisplay = React.memo(({ originalText, processedText, scrollRef, t, onA
                 </button>
               ))
             )}
+            {/* 自己輸入：成為記憶字典，下次自動修 */}
+            <div className="px-2 pt-1 mt-1 border-t border-gray-100 dark:border-gray-700">
+              <input
+                value={custom}
+                onChange={(e) => setCustom(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') pick(custom); }}
+                placeholder={t('panel.correctCustom')}
+                className="w-full px-2 py-1.5 text-sm rounded-md bg-gray-50 dark:bg-gray-700/60 text-gray-800 dark:text-gray-200 outline-none placeholder:text-gray-400"
+                style={{ WebkitAppRegion: 'no-drag' }}
+              />
+            </div>
           </div>
         </>
       )}
@@ -771,12 +783,21 @@ export default function App() {
     };
   }, [handleRecordingComplete, handleAIOptimizationComplete]);
 
-  // 點字改錯：把面板裡的文字換成選好的候選，並同步到剪貼簿（方便重新貼上）
-  const handleApplyCorrection = useCallback((newText) => {
+  // 點字改錯：把面板裡的文字換成選好的候選，並同步到剪貼簿（方便重新貼上）。
+  // 改的若是「詞」（≥2 字），就記進字典 → 下次辨識自動修正（會學習的輸入法）。
+  const handleApplyCorrection = useCallback((newText, target, replacement) => {
     if (processedText) setProcessedText(newText);
     else setOriginalText(newText);
     try { window.electronAPI?.copyText?.(newText); } catch (e) { /* ignore */ }
-    showNotification('success', t('panel.correctApplied'));
+    const remember =
+      target && replacement && target !== replacement &&
+      [...target].length >= 2; // 單字（在/再）太危險不自動記，避免全文誤換
+    if (remember) {
+      try { window.electronAPI?.addDictionaryEntry?.(target, replacement, '改錯記憶'); } catch (e) { /* ignore */ }
+      showNotification('success', t('panel.correctRemembered', { from: target, to: replacement }));
+    } else {
+      showNotification('success', t('panel.correctApplied'));
+    }
   }, [processedText, showNotification, t]);
 
   // 处理复制文本
