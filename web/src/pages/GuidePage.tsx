@@ -43,9 +43,21 @@ export default function GuidePage() {
         <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-3">
           完整使用教學
         </h1>
-        <p className="text-gray-600 dark:text-gray-300 mb-8">
+        <p className="text-gray-600 dark:text-gray-300 mb-6">
           從安裝到每一個進階功能，從頭到尾講一遍。所有辨識都跑在你自己的電腦上，免費、離線、不限量。
         </p>
+
+        {/* 教學影片 */}
+        <div className="aspect-video w-full rounded-2xl overflow-hidden shadow-lg border border-gray-200 dark:border-gray-700 mb-10">
+          <iframe
+            className="w-full h-full"
+            src="https://www.youtube.com/embed/06Hg55D-hfY"
+            title="聲聲慢 SpeakSlow 使用教學"
+            loading="lazy"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+          />
+        </div>
 
         {/* 目錄 */}
         <nav className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 mb-12">
