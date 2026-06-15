@@ -74,8 +74,8 @@ export default {
     },
     modelOptions: {
       deepseekChat: 'DeepSeek Chat (best value)',
-      geminiFlash: 'Gemini 2.0 Flash (fast, cheap)',
-      geminiPro: 'Gemini 1.5 Pro (high quality)',
+      geminiFlash: 'Gemini 2.5 Flash (fast, cheap)',
+      geminiPro: 'Gemini 2.5 Pro (high quality)',
       qwen: 'Qwen2.5 (best for Chinese)',
       qwenFast: 'Qwen2.5 3B (faster)'
     },

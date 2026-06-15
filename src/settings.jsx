@@ -103,7 +103,7 @@ const SettingsPage = () => {
         setSettings(prev => ({ ...prev, ...loadedSettings }));
         
         // 检查是否使用自定义模型
-        const predefinedModels = ["deepseek-chat", "deepseek-reasoner", "gpt-3.5-turbo", "gpt-4", "gpt-4-turbo", "gpt-4o", "gpt-4o-mini", "gemini-2.0-flash", "gemini-1.5-pro", "qwen2.5", "qwen2.5:3b", "llama3.2"];
+        const predefinedModels = ["deepseek-chat", "deepseek-reasoner", "gpt-3.5-turbo", "gpt-4", "gpt-4-turbo", "gpt-4o", "gpt-4o-mini", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro", "gemini-3.5-flash", "qwen2.5", "qwen2.5:3b", "llama3.2"];
         setCustomModel(!predefinedModels.includes(loadedSettings.ai_model));
       }
     } catch (error) {
@@ -215,7 +215,7 @@ const SettingsPage = () => {
     setSettings(prev => ({
       ...prev,
       ai_base_url: "https://generativelanguage.googleapis.com/v1beta/openai",
-      ai_model: "gemini-2.0-flash"
+      ai_model: "gemini-2.5-flash"
     }));
     setCustomModel(true);
     toast.info(t('settings.configApplied', { provider: 'Gemini' }));
@@ -1055,8 +1055,10 @@ const SettingsPage = () => {
                           <option value="gpt-4o-mini">GPT-4o Mini</option>
                         </optgroup>
                         <optgroup label="Gemini">
-                          <option value="gemini-2.0-flash">{t('settings.modelOptions.geminiFlash')}</option>
-                          <option value="gemini-1.5-pro">{t('settings.modelOptions.geminiPro')}</option>
+                          <option value="gemini-2.5-flash">{t('settings.modelOptions.geminiFlash')}</option>
+                          <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite</option>
+                          <option value="gemini-2.5-pro">{t('settings.modelOptions.geminiPro')}</option>
+                          <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
                         </optgroup>
                         <optgroup label={t('settings.modelGroups.ollama')}>
                           <option value="qwen2.5">{t('settings.modelOptions.qwen')}</option>
