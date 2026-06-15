@@ -31,6 +31,12 @@ MODELS = [
         "model.int8.onnx",
     ),
     (
+        "快速辨識 Paraformer-small",
+        f"{BASE}/asr-models/sherpa-onnx-paraformer-zh-small-2024-03-09.tar.bz2",
+        "sherpa-onnx-paraformer-zh-small-2024-03-09",
+        "model.int8.onnx",
+    ),
+    (
         "標點 ct-transformer",
         f"{BASE}/punctuation-models/sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12.tar.bz2",
         "sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12",
@@ -95,6 +101,23 @@ def download_model(name, url, folder, key_file):
     return False
 
 
+def download_file(name, url, dest_name):
+    """下載單一檔案（非壓縮包），如 silero_vad.onnx。"""
+    os.makedirs(POC_DIR, exist_ok=True)
+    dest = os.path.join(POC_DIR, dest_name)
+    if os.path.exists(dest):
+        print(f"[跳過] {name}：已存在 ({dest_name})")
+        return True
+    print(f"[下載] {name}\n  來源: {url}")
+    try:
+        urllib.request.urlretrieve(url, dest, _progress)
+        print(f"\n  ✅ 完成: {dest_name}")
+        return True
+    except Exception as e:
+        print(f"\n  ❌ 下載失敗: {e}")
+        return False
+
+
 def main():
     print("=== ququ 模型下載工具 ===\n")
     ok = True
@@ -102,6 +125,14 @@ def main():
         if not download_model(name, url, folder, key_file):
             ok = False
         print()
+    # VAD 是單一 onnx 檔（防幻聽閘門 + 長音訊/字幕切段都靠它，必備）
+    if not download_file(
+        "語音偵測 Silero VAD",
+        f"{BASE}/asr-models/silero_vad.onnx",
+        "silero_vad.onnx",
+    ):
+        ok = False
+    print()
 
     if ok:
         print("✅ 全部模型已就緒")

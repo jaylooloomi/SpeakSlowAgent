@@ -108,8 +108,63 @@ class ClipboardManager {
     }
   }
 
-  // 快速擷取目前前景視窗（存進 PS 變數，不回傳到 Node）
+  // ===== Linux：用 xdotool 做等效的「擷取前景視窗 / 還原焦點 / 送鍵」 =====
+  // 操作模式在 Linux 靠 xdotool（X11 可用；Wayland 需切到 Xorg session）。
+  _xdoSpawn(args) {
+    try {
+      const { spawn } = require("child_process");
+      const p = spawn("xdotool", args, { stdio: "ignore" });
+      p.on("error", (e) =>
+        this.safeLog(`⚠️ xdotool 執行失敗（請安裝 xdotool）: ${e.message}`)
+      );
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+  _xdoCapture() {
+    try {
+      const { execFileSync } = require("child_process");
+      const out = execFileSync("xdotool", ["getactivewindow"], { timeout: 1000 })
+        .toString()
+        .trim();
+      this._savedWindowId = out || null;
+      return true;
+    } catch (e) {
+      this.safeLog(`⚠️ xdotool getactivewindow 失敗（請安裝 xdotool）: ${e.message}`);
+      this._savedWindowId = null;
+      return false;
+    }
+  }
+  _xdoKeys(keyArr) {
+    if (!keyArr || !keyArr.length) return false;
+    const id = this._savedWindowId;
+    return id
+      ? this._xdoSpawn(["windowactivate", "--sync", id, "key", ...keyArr])
+      : this._xdoSpawn(["key", ...keyArr]);
+  }
+  // SendKeys 語法（^a / ^c / ^v / {ENTER} / {DEL}）→ xdotool key 規格陣列
+  _sendKeysToXdo(keys) {
+    const out = [];
+    for (let i = 0; i < keys.length; i++) {
+      const ch = keys[i];
+      if (ch === "^") {
+        const next = keys[++i];
+        if (next) out.push("ctrl+" + next.toLowerCase());
+      } else if (ch === "{") {
+        const end = keys.indexOf("}", i);
+        const stop = end < 0 ? keys.length : end;
+        const name = keys.slice(i + 1, stop).toUpperCase();
+        i = stop;
+        out.push(name === "ENTER" ? "Return" : name === "DEL" || name === "DELETE" ? "Delete" : name);
+      }
+    }
+    return out;
+  }
+
+  // 快速擷取目前前景視窗（Windows 存進 PS 變數；Linux 存進 this._savedWindowId）
   captureForegroundFast() {
+    if (process.platform === "linux") return this._xdoCapture();
     const ps = this._ensurePsShell();
     if (!ps) return false;
     return this._psSend(`$savedHwnd = [Native.Fg]::GetForegroundWindow()`);
@@ -117,6 +172,7 @@ class ClipboardManager {
 
   // 快速：還原焦點到先前視窗並貼上（Ctrl+V）
   focusAndPasteFast() {
+    if (process.platform === "linux") return this._xdoKeys(["ctrl+v"]);
     const ps = this._ensurePsShell();
     if (!ps) return false;
     return this._psSend(
@@ -126,6 +182,7 @@ class ClipboardManager {
 
   // 快速：還原焦點到先前視窗並複製選取（Ctrl+C）—— 操作模式抓選取用
   focusAndCopyFast() {
+    if (process.platform === "linux") return this._xdoKeys(["ctrl+c"]);
     const ps = this._ensurePsShell();
     if (!ps) return false;
     return this._psSend(
@@ -136,6 +193,7 @@ class ClipboardManager {
   // 快速：還原焦點到前景視窗並送出任意按鍵（操作模式的按鍵指令用）
   // keys 為 SendKeys 語法字串（^a=Ctrl+A、^c、^v、{ENTER}、{DELETE} 等）
   focusAndSendKeysFast(keys) {
+    if (process.platform === "linux") return this._xdoKeys(this._sendKeysToXdo(keys));
     const ps = this._ensurePsShell();
     if (!ps) return false;
     // keys 為內建常數（非使用者輸入），不含單引號，可安全內嵌
@@ -146,6 +204,7 @@ class ClipboardManager {
 
   // 快速：送出 Enter
   sendEnterFast() {
+    if (process.platform === "linux") return this._xdoKeys(["Return"]);
     const ps = this._ensurePsShell();
     if (!ps) return false;
     return this._psSend(`Start-Sleep -Milliseconds 20; $ws.SendKeys('{ENTER}')`);

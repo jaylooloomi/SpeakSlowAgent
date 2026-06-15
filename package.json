@@ -156,7 +156,10 @@
     },
     "linux": {
       "icon": "assets/icon.png",
-      "category": "Office"
+      "category": "Office",
+      "target": [
+        "AppImage"
+      ]
     }
   }
 }
