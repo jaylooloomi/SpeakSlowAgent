@@ -234,7 +234,9 @@ const SettingsPage = () => {
     setSettings(prev => ({
       ...prev,
       ai_base_url: "https://generativelanguage.googleapis.com/v1beta/openai",
-      ai_model: "gemini-2.5-flash"
+      ai_model: "gemini-2.5-flash",
+      // 換到不同供應商就清空 key（別帶著別家的 key 打 Gemini → 一定失敗）
+      ai_api_key: prev.ai_base_url === "https://generativelanguage.googleapis.com/v1beta/openai" ? prev.ai_api_key : ""
     }));
     setCustomModel(true);
     toast.info(t('settings.configApplied', { provider: 'Gemini' }));
@@ -257,7 +259,8 @@ const SettingsPage = () => {
     setSettings(prev => ({
       ...prev,
       ai_base_url: "https://api.openai.com/v1",
-      ai_model: "gpt-4o-mini"
+      ai_model: "gpt-4o-mini",
+      ai_api_key: prev.ai_base_url === "https://api.openai.com/v1" ? prev.ai_api_key : ""
     }));
     setCustomModel(false);
     toast.info(t('settings.configApplied', { provider: t('settings.openaiConfig') }));
@@ -268,7 +271,8 @@ const SettingsPage = () => {
     setSettings(prev => ({
       ...prev,
       ai_base_url: "https://api.deepseek.com",
-      ai_model: "deepseek-v4-flash"
+      ai_model: "deepseek-v4-flash",
+      ai_api_key: prev.ai_base_url === "https://api.deepseek.com" ? prev.ai_api_key : ""
     }));
     setCustomModel(false);
     toast.info(t('settings.configApplied', { provider: 'DeepSeek' }));
