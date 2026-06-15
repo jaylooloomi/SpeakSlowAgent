@@ -1116,10 +1116,15 @@ const SettingsPage = () => {
                             providerName = t('settings.ollamaLocal');
                           }
 
+                          // 換到「不同供應商」就清空 key（Ollama 用 dummy），
+                          // 避免帶著別家的 key（那串星號）去打新供應商 → 失敗。
+                          const providerChanged = baseUrl !== settings.ai_base_url;
+                          const isOllama = baseUrl.includes('localhost:11434');
                           setSettings(prev => ({
                             ...prev,
                             ai_model: model,
-                            ai_base_url: baseUrl
+                            ai_base_url: baseUrl,
+                            ...(providerChanged ? { ai_api_key: isOllama ? (prev.ai_api_key || 'ollama') : '' } : {})
                           }));
 
                           if (providerName) {
