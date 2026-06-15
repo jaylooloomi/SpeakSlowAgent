@@ -344,7 +344,9 @@ _EMOJI_MAP = {
     "星號": "＊", "波浪號": "～", "豎線": "｜",
 }
 _EMOJI_RE = re.compile(
-    "(" + "|".join(sorted(map(re.escape, _EMOJI_MAP.keys()), key=len, reverse=True)) + ")"
+    # 名字「前面」被標點模型硬塞的逗號/頓號/空白也吃掉，否則插符號會變「，！」。
+    r"[，、\s]?"
+    + "(" + "|".join(sorted(map(re.escape, _EMOJI_MAP.keys()), key=len, reverse=True)) + ")"
     # 名字與「表情」之間、以及「表情」之後，標點模型常塞句點 → 一併吃掉。
     # 「表」常被聽成「錶」，一併認。
     + r"[。，、！？\s]{0,3}的?(?:[表錶]情符號|[表錶]情|符號|emoji)[。，、！？\s]?",
