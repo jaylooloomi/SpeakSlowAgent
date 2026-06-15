@@ -37,6 +37,8 @@ const SettingsPage = () => {
     language: "zh-TW",
     convert_transcription: true,
     asr_profile: "standard",          // 效能模式：standard（最準）/ fast（弱 CPU）
+    mic_device_id: "",                // 指定麥克風（空=系統預設）
+    mic_auto_gain: true,              // 自動增益（AGC）
     // 錄音完成後動作設定（自動貼上已固定開啟，僅保留「自動送出 Enter」）
     auto_enter_after_paste: false,    // 貼上後自動送出（完全信任模式）
     // 視窗控制設定
@@ -52,6 +54,7 @@ const SettingsPage = () => {
   const [showApiKey, setShowApiKey] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
+  const [micDevices, setMicDevices] = useState([]); // 可選的麥克風清單
 
   // 权限管理
   const showAlert = (alert) => {
@@ -73,6 +76,20 @@ const SettingsPage = () => {
     loadSettings();
   }, []);
 
+  // 列出可選的麥克風（已授權的話會有名稱；沒授權則只有編號）
+  useEffect(() => {
+    const loadMics = async () => {
+      try {
+        if (!navigator.mediaDevices?.enumerateDevices) return;
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        setMicDevices(devices.filter((d) => d.kind === 'audioinput' && d.deviceId && d.deviceId !== 'communications'));
+      } catch (e) { /* ignore */ }
+    };
+    loadMics();
+    navigator.mediaDevices?.addEventListener?.('devicechange', loadMics);
+    return () => navigator.mediaDevices?.removeEventListener?.('devicechange', loadMics);
+  }, []);
+
   const loadSettings = async () => {
     try {
       setLoading(true);
@@ -88,6 +105,8 @@ const SettingsPage = () => {
           language: allSettings.language || "zh-TW", // 默认繁体中文
           convert_transcription: allSettings.convert_transcription !== false, // 默认转换
           asr_profile: allSettings.asr_profile || "standard",
+          mic_device_id: allSettings.mic_device_id || "",
+          mic_auto_gain: allSettings.mic_auto_gain !== false,
           // 錄音完成後動作設定
           auto_enter_after_paste: allSettings.auto_enter_after_paste === true, // 默認不自動送出
           // 視窗控制設定
@@ -455,6 +474,61 @@ const SettingsPage = () => {
                     <option value="zh-CN">简体中文</option>
                     <option value="en">English</option>
                   </select>
+                </div>
+
+                {/* 麥克風選擇（空=系統預設） */}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <label className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                      {t('settings.micDevice')}
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {t('settings.micDeviceDesc')}
+                    </p>
+                  </div>
+                  <select
+                    value={settings.mic_device_id || ''}
+                    onChange={async (e) => {
+                      const v = e.target.value;
+                      handleInputChange('mic_device_id', v);
+                      if (window.electronAPI) await window.electronAPI.setSetting('mic_device_id', v);
+                      toast.success(t('settings.micDeviceChanged'));
+                    }}
+                    className="max-w-[55%] px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 truncate"
+                  >
+                    <option value="">{t('settings.micDeviceDefault')}</option>
+                    {micDevices.map((d, i) => (
+                      <option key={d.deviceId} value={d.deviceId}>{d.label || `${t('settings.micDevice')} ${i + 1}`}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 自動增益（AGC）：好麥克風可關掉，避免靜音時放大噪音導致幻聽 */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                      {t('settings.micAgc')}
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {t('settings.micAgcDesc')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={settings.mic_auto_gain !== false}
+                    onClick={() => handleToggleChange('mic_auto_gain', !(settings.mic_auto_gain !== false))}
+                    className={`${
+                      settings.mic_auto_gain !== false ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                    } relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`${
+                        settings.mic_auto_gain !== false ? 'translate-x-4' : 'translate-x-0'
+                      } inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                    />
+                  </button>
                 </div>
 
                 {/* 效能模式：標準（最準）/ 快速（弱 CPU 機器） */}

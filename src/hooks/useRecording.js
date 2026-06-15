@@ -136,15 +136,36 @@ export const useRecording = (modelStatus) => {
       }
 
       // 请求麦克风权限
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          sampleRate: 16000,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
+      // 讀取使用者指定的麥克風 + 自動增益設定（沒指定就用系統預設）
+      let savedMicId = '';
+      let agcOn = true;
+      try {
+        savedMicId = (await window.electronAPI?.getSetting?.('mic_device_id', '')) || '';
+        agcOn = (await window.electronAPI?.getSetting?.('mic_auto_gain', true)) !== false;
+      } catch (e) { /* 讀不到就用預設 */ }
+
+      const audioConstraints = {
+        sampleRate: 16000,
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: agcOn
+      };
+      if (savedMicId) audioConstraints.deviceId = { exact: savedMicId };
+
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+      } catch (err) {
+        // 指定的麥克風不在了（拔掉 / 換 USB 孔）→ 退回系統預設，別讓錄音直接掛掉
+        if (savedMicId) {
+          if (window.electronAPI?.log) window.electronAPI.log('warn', `指定的麥克風不可用，改用預設: ${err.message}`);
+          delete audioConstraints.deviceId;
+          stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+        } else {
+          throw err;
         }
-      });
+      }
 
       // 更新狀態
       if (micPermissionRef.current !== 'granted') {
