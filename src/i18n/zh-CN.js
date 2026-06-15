@@ -53,6 +53,7 @@ export default {
     apiKey: 'API Key',
     apiKeyPlaceholder: '请输入您的AI API Key',
     apiKeyDesc: '用于AI文本优化功能的API密钥',
+    aiSetupHelp: '不知道怎么设置？看教程',
     baseUrl: 'API Base URL',
     baseUrlDesc: 'AI服务的API端点地址，支持OpenAI兼容的API',
     aiModel: 'AI模型',
@@ -73,7 +74,7 @@ export default {
       ollama: 'Ollama（本地、免费）'
     },
     modelOptions: {
-      deepseekChat: 'DeepSeek Chat (最划算)',
+      deepseekChat: 'DeepSeek V4 Flash (最划算)',
       geminiFlash: 'Gemini 2.5 Flash (快、便宜)',
       geminiPro: 'Gemini 2.5 Pro (高质量)',
       qwen: 'Qwen2.5 (中文推荐)',

@@ -283,10 +283,26 @@ export default function GuidePage() {
               </tbody>
             </table>
           </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            設定裡有一鍵套用各家的網址 / 模型範本，你只要貼上自己的金鑰。所有家都走同一套 OpenAI 相容介面。
+          <h3 className="font-bold text-gray-800 dark:text-gray-100 pt-2">怎麼設定（最快的兩條路）</h3>
+          <p className="font-medium">路線 A：完全免費、本地（最在意隱私就選這條）</p>
+          <ol className="list-decimal pl-5 space-y-1">
+            <li>到 <a className="text-emerald-600 hover:underline" href="https://ollama.com" target="_blank" rel="noreferrer">ollama.com</a> 下載並安裝 Ollama</li>
+            <li>開命令列（cmd / PowerShell）執行 <code className="px-1 bg-gray-100 dark:bg-gray-700 rounded">ollama pull qwen2.5</code> 把模型抓下來</li>
+            <li>聲聲慢 → 設定 → AI → 點 <strong>Ollama</strong> 範本 → 打開 AI 優化。免金鑰、免費、離線。</li>
+          </ol>
+          <p className="font-medium pt-2">路線 B：用雲端 AI（需要一把金鑰，品質更高）</p>
+          <ol className="list-decimal pl-5 space-y-1">
+            <li>挑一家去拿金鑰：
+              <a className="text-emerald-600 hover:underline" href="https://platform.deepseek.com" target="_blank" rel="noreferrer">DeepSeek</a>（最便宜、中文好）、
+              <a className="text-emerald-600 hover:underline" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer">Google AI Studio</a>（Gemini，有免費額度）、
+              或 <a className="text-emerald-600 hover:underline" href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer">OpenAI</a></li>
+            <li>設定 → AI → 點<strong>那一家的範本</strong>（會自動幫你填好網址跟模型）</li>
+            <li>把金鑰貼進「API 金鑰」欄 → 按「<strong>測試設定</strong>」確認連得上 → 打開 AI 優化</li>
+          </ol>
+          <p className="text-sm bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3">
+            常見雷：金鑰一定要從上面那些<strong>官方頁面</strong>拿；<strong>Gemini 的金鑰要去 Google AI Studio 申請</strong>（不是直接用 Google 帳號）。如果一直失敗，按「測試設定」，它會直接告訴你是金鑰錯、模型錯、還是額度爆了。
           </p>
-          <Shot label="設定 → AI：供應商範本按鈕 + 金鑰欄位" />
+          <Shot label="設定 → AI：供應商範本按鈕 + 金鑰欄位 + 測試設定" />
         </Section>
 
         {/* 9 設定 */}

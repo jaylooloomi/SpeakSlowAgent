@@ -53,6 +53,7 @@ export default {
     apiKey: 'API Key',
     apiKeyPlaceholder: 'Enter your AI API key',
     apiKeyDesc: 'API key used for AI text enhancement',
+    aiSetupHelp: 'Not sure how to set it up? See the guide',
     baseUrl: 'API Base URL',
     baseUrlDesc: 'API endpoint for the AI service; OpenAI-compatible APIs are supported',
     aiModel: 'AI Model',
@@ -73,7 +74,7 @@ export default {
       ollama: 'Ollama (local, free)'
     },
     modelOptions: {
-      deepseekChat: 'DeepSeek Chat (best value)',
+      deepseekChat: 'DeepSeek V4 Flash (best value)',
       geminiFlash: 'Gemini 2.5 Flash (fast, cheap)',
       geminiPro: 'Gemini 2.5 Pro (high quality)',
       qwen: 'Qwen2.5 (best for Chinese)',

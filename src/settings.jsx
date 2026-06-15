@@ -30,7 +30,7 @@ const SettingsPage = () => {
   const [settings, setSettings] = useState({
     ai_api_key: "",
     ai_base_url: "https://api.openai.com/v1",
-    ai_model: "gpt-3.5-turbo",
+    ai_model: "gpt-4o-mini",
     enable_ai_optimization: false,
     enable_notifications: true,
     enable_streaming_mode: false,
@@ -81,7 +81,7 @@ const SettingsPage = () => {
         const loadedSettings = {
           ai_api_key: allSettings.ai_api_key || "",
           ai_base_url: allSettings.ai_base_url || "https://api.openai.com/v1",
-          ai_model: allSettings.ai_model || "gpt-3.5-turbo",
+          ai_model: allSettings.ai_model || "gpt-4o-mini",
           enable_ai_optimization: allSettings.enable_ai_optimization === true, // 默认为false
           enable_notifications: allSettings.enable_notifications !== false, // 默认为true
           enable_streaming_mode: allSettings.enable_streaming_mode === true, // 默認關閉
@@ -103,7 +103,7 @@ const SettingsPage = () => {
         setSettings(prev => ({ ...prev, ...loadedSettings }));
         
         // 检查是否使用自定义模型
-        const predefinedModels = ["deepseek-chat", "deepseek-reasoner", "gpt-3.5-turbo", "gpt-4", "gpt-4-turbo", "gpt-4o", "gpt-4o-mini", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro", "gemini-3.5-flash", "qwen2.5", "qwen2.5:3b", "llama3.2"];
+        const predefinedModels = ["deepseek-v4-flash", "deepseek-v4-pro", "deepseek-chat", "deepseek-reasoner", "gpt-4o", "gpt-4o-mini", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro", "gemini-3.5-flash", "qwen2.5", "qwen2.5:3b", "llama3.2"];
         setCustomModel(!predefinedModels.includes(loadedSettings.ai_model));
       }
     } catch (error) {
@@ -238,7 +238,7 @@ const SettingsPage = () => {
     setSettings(prev => ({
       ...prev,
       ai_base_url: "https://api.openai.com/v1",
-      ai_model: "gpt-3.5-turbo"
+      ai_model: "gpt-4o-mini"
     }));
     setCustomModel(false);
     toast.info(t('settings.configApplied', { provider: t('settings.openaiConfig') }));
@@ -249,9 +249,9 @@ const SettingsPage = () => {
     setSettings(prev => ({
       ...prev,
       ai_base_url: "https://api.deepseek.com",
-      ai_model: "deepseek-chat"
+      ai_model: "deepseek-v4-flash"
     }));
-    setCustomModel(true);
+    setCustomModel(false);
     toast.info(t('settings.configApplied', { provider: 'DeepSeek' }));
   };
 
@@ -279,7 +279,7 @@ const SettingsPage = () => {
         const testConfig = {
           ai_api_key: settings.ai_api_key.trim(),
           ai_base_url: settings.ai_base_url.trim() || 'https://api.openai.com/v1',
-          ai_model: settings.ai_model.trim() || 'gpt-3.5-turbo'
+          ai_model: settings.ai_model.trim() || 'gpt-4o-mini'
         };
         
         const result = await window.electronAPI.checkAIStatus(testConfig);
@@ -936,6 +936,13 @@ const SettingsPage = () => {
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                     {t('settings.apiKeyDesc')}
                   </p>
+                  <button
+                    type="button"
+                    onClick={() => window.electronAPI?.openExternal?.('https://jeffrey0117.github.io/SpeakSlow/#/guide')}
+                    className="mt-1 text-xs text-blue-500 hover:underline"
+                  >
+                    {t('settings.aiSetupHelp')} →
+                  </button>
                 </div>
 
                 {/* Base URL */}
@@ -1044,15 +1051,12 @@ const SettingsPage = () => {
                         className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                       >
                         <optgroup label={t('settings.modelGroups.deepseek')}>
-                          <option value="deepseek-chat">{t('settings.modelOptions.deepseekChat')}</option>
-                          <option value="deepseek-reasoner">DeepSeek Reasoner (R1)</option>
+                          <option value="deepseek-v4-flash">{t('settings.modelOptions.deepseekChat')}</option>
+                          <option value="deepseek-v4-pro">DeepSeek V4 Pro (推理)</option>
                         </optgroup>
                         <optgroup label="OpenAI">
-                          <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                          <option value="gpt-4">GPT-4</option>
-                          <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                          <option value="gpt-4o">GPT-4o</option>
                           <option value="gpt-4o-mini">GPT-4o Mini</option>
+                          <option value="gpt-4o">GPT-4o</option>
                         </optgroup>
                         <optgroup label="Gemini">
                           <option value="gemini-2.5-flash">{t('settings.modelOptions.geminiFlash')}</option>
