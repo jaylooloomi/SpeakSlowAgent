@@ -6,6 +6,8 @@ import Nav from '../components/Nav'
 const REPO = 'https://github.com/Jeffrey0117/SpeakSlow'
 // 一鍵直接下載最新版 exe（不丟到 Releases 頁讓人猜要點哪個檔）
 const DOWNLOAD = `${REPO}/releases/download/v1.0.9/SpeakSlow-Setup-1.0.9.exe`
+const DOWNLOAD_MAC = `${REPO}/releases/download/v1.0.9/SpeakSlow-1.0.9-arm64.dmg`
+const DOWNLOAD_LINUX = `${REPO}/releases/download/v1.0.9/SpeakSlow-1.0.9.AppImage`
 
 export default function HomePage() {
   return (
@@ -56,6 +58,16 @@ export default function HomePage() {
             >
               <Github className="w-5 h-5" /> 在 GitHub 上 Star ⭐
             </a>
+          </div>
+
+          {/* Mac / Linux（beta） */}
+          <div className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+            也有{' '}
+            <a href={DOWNLOAD_MAC} className="text-emerald-600 dark:text-emerald-400 hover:underline">🍎 macOS（Apple Silicon）</a>
+            {' · '}
+            <a href={DOWNLOAD_LINUX} className="text-emerald-600 dark:text-emerald-400 hover:underline">🐧 Linux（AppImage）</a>
+            {' '}
+            <span className="text-gray-400 dark:text-gray-500">— beta，基本功能可用，未完整測試</span>
           </div>
 
           {/* 教學連結 */}
