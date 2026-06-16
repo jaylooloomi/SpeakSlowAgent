@@ -21,12 +21,17 @@ except Exception as _e:
     _opencc_converter = None
     logger_init.warning(f"OpenCC 不可用，將不進行簡轉繁轉換: {_e}")
 
+# OpenCC 的 s2tw 把「账」轉成貝部的「賬」，但台灣標準字是巾部的「帳」(帳號/帳單/記帳)。
+# 台灣不用「賬」，故一律修正；如有其他類似的台標字偏差也可加進來。
+_TW_CHAR_FIX = str.maketrans({"賬": "帳"})
+
+
 def to_traditional(text):
-    """將簡體中文轉換為繁體中文"""
+    """將簡體中文轉換為繁體中文（並修成台灣標準字）"""
     if not text or _opencc_converter is None:
         return text
     try:
-        return _opencc_converter.convert(text)
+        return _opencc_converter.convert(text).translate(_TW_CHAR_FIX)
     except Exception:
         return text
 
