@@ -61,7 +61,7 @@ export default function HomePage() {
           </div>
 
           {/* Mac / Linux（beta） */}
-          <div className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+          <div className="mb-2 text-sm text-gray-500 dark:text-gray-400">
             也有{' '}
             <a href={DOWNLOAD_MAC} className="text-emerald-600 dark:text-emerald-400 hover:underline">🍎 macOS（Apple Silicon）</a>
             {' · '}
@@ -69,6 +69,12 @@ export default function HomePage() {
             {' '}
             <span className="text-gray-400 dark:text-gray-500">— beta，基本功能可用，未完整測試</span>
           </div>
+          <p className="mb-8 text-xs text-gray-400 dark:text-gray-500 max-w-xl mx-auto leading-relaxed">
+            🍎 Mac 第一次打開若顯示「已毀損」，<strong className="text-gray-500 dark:text-gray-400">不是檔案壞掉</strong>，
+            是未簽章被系統擋。把 App 拖進「應用程式」後，終端機執行{' '}
+            <code className="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">xattr -cr /Applications/SpeakSlow.app</code>{' '}
+            即可開啟。
+          </p>
 
           {/* 教學連結 */}
           <div className="mb-8">
