@@ -2,12 +2,13 @@ import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 import { toast, Toaster } from "sonner";
-import { Settings, Save, Eye, EyeOff, X, Loader2, TestTube, CheckCircle, XCircle, Mic, Shield, Globe, Keyboard, Sparkles, BookText, Tag, History, Info, Heart } from "lucide-react";
+import { Settings, Save, Eye, EyeOff, X, Loader2, TestTube, CheckCircle, XCircle, Mic, Shield, Globe, Keyboard, Sparkles, BookText, Tag, History, Info, Heart, Smile } from "lucide-react";
 import { usePermissions } from "./hooks/usePermissions";
 import PermissionCard from "./components/ui/permission-card";
 import HotkeySettings from "./components/HotkeySettings";
 import HotwordsManager from "./components/HotwordsManager";
 import DictionaryManager from "./components/DictionaryManager";
+import EmojiManager from "./components/EmojiManager";
 import HistoryView from "./components/HistoryView";
 import { useTranslation, LanguageProvider } from "./i18n";
 
@@ -19,6 +20,7 @@ const SETTINGS_TABS = [
   { id: 'hotkeys', labelKey: 'settings.tabs.hotkeys', icon: Keyboard },
   { id: 'hotwords', labelKey: 'settings.tabs.hotwords', icon: Tag },
   { id: 'dictionary', labelKey: 'settings.tabs.dictionary', icon: BookText },
+  { id: 'emoji', labelKey: 'settings.tabs.emoji', icon: Smile },
   { id: 'permissions', labelKey: 'settings.tabs.permissions', icon: Shield },
   { id: 'about', labelKey: 'settings.tabs.about', icon: Info },
 ];
@@ -949,6 +951,15 @@ const SettingsPage = () => {
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 mb-6">
             <div className="p-6">
               <DictionaryManager t={t} />
+            </div>
+          </div>
+
+            )}
+
+            {activeTab === 'emoji' && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 mb-6">
+            <div className="p-6">
+              <EmojiManager t={t} />
             </div>
           </div>
 

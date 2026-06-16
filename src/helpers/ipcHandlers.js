@@ -27,6 +27,7 @@ class IPCHandlers {
     require("./ipc/window")(this);
     require("./ipc/hotkeys")(this);
     require("./ipc/system")(this);
+    require("./ipc/emoji")(this);
   }
 
 

@@ -27,6 +27,8 @@ from text_processing import (
     format_lists,
     localize_english_punct,
     smart_join,
+    set_custom_emojis,
+    get_builtin_emojis,
 )
 
 # 設置日誌
@@ -1819,6 +1821,12 @@ class SherpaServer:
                         sys.stdout.flush()
                         continue
                     result = {"success": True, "text": out}
+                # ========== 語音符號（自訂表情/符號）==========
+                elif action == "set_custom_emojis":
+                    set_custom_emojis(command.get("emojis", {}) or {})
+                    result = {"success": True}
+                elif action == "get_emoji_map":
+                    result = {"success": True, "builtin": get_builtin_emojis()}
                 # ========== 串流辨識命令 ==========
                 # ========== 邊錄邊算（precog）命令 ==========
                 elif action == "precog_start":

@@ -343,22 +343,45 @@ _EMOJI_MAP = {
     "向右箭頭": "→", "向左箭頭": "←", "向上箭頭": "↑", "向下箭頭": "↓", "箭頭": "→",
     "星號": "＊", "波浪號": "～", "豎線": "｜",
 }
-_EMOJI_RE = re.compile(
-    # 名字「前面」被標點模型硬塞的逗號/頓號/空白也吃掉，否則插符號會變「，！」。
-    r"[，、\s]?"
-    + "(" + "|".join(sorted(map(re.escape, _EMOJI_MAP.keys()), key=len, reverse=True)) + ")"
-    # 名字與「表情」之間、以及「表情」之後，標點模型常塞句點 → 一併吃掉。
-    # 「表」常被聽成「錶」，一併認。
-    + r"[。，、！？\s]{0,3}的?(?:[表錶]情符號|[表錶]情|符號|emoji)[。，、！？\s]?",
-    re.I,
-)
+# 使用者自訂的符號（從 DB 載入，覆蓋/補充內建表）。可在執行中更新。
+_CUSTOM_EMOJI = {}
+_EFFECTIVE_EMOJI = dict(_EMOJI_MAP)
+
+
+def _build_emoji_re(keys):
+    return re.compile(
+        # 名字「前面」被標點模型硬塞的逗號/頓號/空白也吃掉，否則插符號會變「，！」。
+        r"[，、\s]?"
+        + "(" + "|".join(sorted(map(re.escape, keys), key=len, reverse=True)) + ")"
+        # 名字與「表情」之間、以及「表情」之後，標點模型常塞句點 → 一併吃掉。
+        # 「表」常被聽成「錶」，一併認。
+        + r"[。，、！？\s]{0,3}的?(?:[表錶]情符號|[表錶]情|符號|emoji)[。，、！？\s]?",
+        re.I,
+    )
+
+
+_EMOJI_RE = _build_emoji_re(_EFFECTIVE_EMOJI.keys())
+
+
+def set_custom_emojis(mapping):
+    """設定使用者自訂符號（{觸發詞: 符號}）。立即生效，與內建表合併（自訂優先）。"""
+    global _CUSTOM_EMOJI, _EFFECTIVE_EMOJI, _EMOJI_RE
+    _CUSTOM_EMOJI = {str(k).strip(): str(v) for k, v in (mapping or {}).items() if str(k).strip() and str(v)}
+    _EFFECTIVE_EMOJI = {**_EMOJI_MAP, **_CUSTOM_EMOJI}
+    _EMOJI_RE = _build_emoji_re(_EFFECTIVE_EMOJI.keys())
+
+
+def get_builtin_emojis():
+    """回傳內建符號對照表（給設定頁顯示用）。"""
+    return dict(_EMOJI_MAP)
+
 
 def apply_emoji(text):
     """把「X表情 / X符號」換成對應 emoji（X 要在表中，否則整段保留不動）。
-    容忍標點模型在中間/結尾塞的句點，並認「錶」=「表」。"""
+    容忍標點模型在中間/結尾塞的句點，並認「錶」=「表」。內建 + 使用者自訂。"""
     if not text:
         return text
-    return _EMOJI_RE.sub(lambda m: _EMOJI_MAP.get(m.group(1), m.group(0)), text)
+    return _EMOJI_RE.sub(lambda m: _EFFECTIVE_EMOJI.get(m.group(1), m.group(0)), text)
 
 
 def strip_short_trailing_period(text):

@@ -119,8 +119,22 @@ export default {
       hotkeys: 'Hotkeys',
       hotwords: 'Hotwords',
       dictionary: 'Dictionary',
+      emoji: 'Symbols',
       permissions: 'Permissions',
       about: 'About'
+    },
+    emoji: {
+      title: 'Voice symbols',
+      desc: 'While dictating, say a name followed by 符號/表情 to insert it, e.g. 火焰符號 → 🔥. Below: see the built-ins and add your own.',
+      addTitle: 'Add your own',
+      keyPlaceholder: 'Trigger word',
+      emojiPlaceholder: 'Symbol',
+      addBtn: 'Add',
+      usageHint: 'After adding, say "<trigger>符號" while dictating (e.g. 很燙符號 → 🔥).',
+      customEmpty: 'No custom symbols yet. Add one.',
+      builtinTitle: 'Built-in',
+      searchPlaceholder: 'Search…',
+      noMatch: 'No match',
     },
 
     // Streaming recognition mode

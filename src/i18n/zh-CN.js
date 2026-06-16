@@ -119,8 +119,22 @@ export default {
       hotkeys: '快捷键',
       hotwords: '热词',
       dictionary: '字典',
+      emoji: '符号',
       permissions: '权限管理',
       about: '关于'
+    },
+    emoji: {
+      title: '语音符号',
+      desc: '听写时讲「名称＋符号」就会插入对应符号，例如「火焰符号」→🔥。下面可看内建有哪些、也能加自己的。',
+      addTitle: '新增我的符号',
+      keyPlaceholder: '触发词（例：很烫）',
+      emojiPlaceholder: '符号',
+      addBtn: '新增',
+      usageHint: '加好后，听写时讲「触发词＋符号」即可（例：很烫符号 → 🔥）。',
+      customEmpty: '还没有自订，加一个试试。',
+      builtinTitle: '内建符号',
+      searchPlaceholder: '搜索…',
+      noMatch: '没有符合的',
     },
 
     // 流式识别模式

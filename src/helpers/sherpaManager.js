@@ -441,6 +441,10 @@ class SherpaManager {
                   this._clearModelCache();
                   this.logger.info &&
                     this.logger.info("Sherpa 服務器啟動成功，模型已初始化");
+                  // 重送使用者自訂符號（啟動 / 後端重啟後都要補回）
+                  if (this.customEmojis && Object.keys(this.customEmojis).length) {
+                    this._sendServerCommand({ action: "set_custom_emojis", emojis: this.customEmojis }).catch(() => {});
+                  }
                 } else {
                   this.logger.error &&
                     this.logger.error("Sherpa 服務器初始化失敗", result);
@@ -894,6 +898,17 @@ class SherpaManager {
   async tts(text, voice = "zh-TW-HsiaoChenNeural", rate = "+0%") {
     if (!this.serverReady) return { success: false, error: "服務器未就緒" };
     return await this._sendServerCommand({ action: "tts", text, voice, rate });
+  }
+
+  // 語音符號：把使用者自訂的 {觸發詞: 符號} 送進後端（即時生效）
+  async setCustomEmojis(emojis) {
+    if (!this.serverReady) return { success: false, error: "服務器未就緒" };
+    return await this._sendServerCommand({ action: "set_custom_emojis", emojis: emojis || {} });
+  }
+  // 取得內建符號對照表（給設定頁顯示）
+  async getEmojiMap() {
+    if (!this.serverReady) return { success: false, error: "服務器未就緒" };
+    return await this._sendServerCommand({ action: "get_emoji_map" });
   }
 
   async precogStart(profile = "standard") {

@@ -114,6 +114,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
   clearAllTranscriptions: () =>
     ipcRenderer.invoke("clear-all-transcriptions"),
 
+  // 語音符號（內建 + 自訂）
+  getBuiltinEmojis: () => ipcRenderer.invoke("get-builtin-emojis"),
+  getCustomEmojis: () => ipcRenderer.invoke("get-custom-emojis"),
+  setCustomEmojis: (emojis) => ipcRenderer.invoke("set-custom-emojis", emojis),
+
   // 字典功能
   getDictionaryEntries: (limit, offset) =>
     ipcRenderer.invoke("get-dictionary-entries", limit, offset),

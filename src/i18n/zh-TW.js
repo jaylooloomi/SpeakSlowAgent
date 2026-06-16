@@ -119,8 +119,22 @@ export default {
       hotkeys: '快捷鍵',
       hotwords: '熱詞',
       dictionary: '字典',
+      emoji: '符號',
       permissions: '權限管理',
       about: '關於'
+    },
+    emoji: {
+      title: '語音符號',
+      desc: '聽寫時講「名稱＋符號」就會插入對應符號，例如「火焰符號」→🔥。下面可看內建有哪些、也能加自己的。',
+      addTitle: '新增我的符號',
+      keyPlaceholder: '觸發詞（例：很燙）',
+      emojiPlaceholder: '符號',
+      addBtn: '新增',
+      usageHint: '加好後，聽寫時講「觸發詞＋符號」即可（例：很燙符號 → 🔥）。',
+      customEmpty: '還沒有自訂，加一個試試。',
+      builtinTitle: '內建符號',
+      searchPlaceholder: '搜尋…',
+      noMatch: '沒有符合的',
     },
 
     // 串流辨識模式
