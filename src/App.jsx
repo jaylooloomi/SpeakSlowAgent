@@ -1200,16 +1200,16 @@ export default function App() {
     return () => document.removeEventListener("keydown", handleKeyPress);
   }, []);
 
-  // 错误处理
+  // 错误处理：走 showNotification → 迷你模式用膠囊閃字，不會冒出比例錯亂的大 toast
   useEffect(() => {
     if (recordingError) {
-      toast.error(recordingError);
+      showNotification('error', recordingError);
     }
   }, [recordingError]);
 
   useEffect(() => {
     if (textProcessingError) {
-      toast.error(textProcessingError);
+      showNotification('error', textProcessingError);
     }
   }, [textProcessingError]);
 
