@@ -1,0 +1,63 @@
+name: Build macOS (Apple Silicon)
+
+# 在雲端的 macOS (Apple Silicon / arm64) runner 上打包 .dmg，你不用有 Mac。
+# 打包完直接掛到「最新的 release」→ 任何人不用登入就能從 release 頁下載。
+# 觸發：Actions 分頁手動 Run，或推 v* tag。
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-mac:
+    runs-on: macos-14 # Apple Silicon (arm64)，對應 M1/M2/M3
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Node deps (rebuilds native modules for Electron via postinstall)
+        run: npm install
+
+      - name: Python venv + backend deps
+        run: |
+          python3 -m venv .venv
+          ./.venv/bin/pip install --upgrade pip
+          ./.venv/bin/pip install sherpa-onnx numpy opencc edge-tts pyinstaller
+
+      - name: Download sherpa models
+        run: ./.venv/bin/python download_all_models.py
+
+      - name: Build Python backend (PyInstaller, macOS)
+        run: npm run build:backend
+
+      - name: Build renderer
+        run: npm run build:renderer
+
+      - name: Build .dmg (arm64, ad-hoc signed)
+        run: npx electron-builder --mac --arm64 --publish never
+
+      - name: Upload dmg (backup artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpeakSlow-macOS-arm64
+          path: dist/*.dmg
+          if-no-files-found: error
+
+      - name: Attach dmg to the latest release (public download)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=$(gh release view --json tagName -q .tagName)
+          echo "Uploading dmg to release $TAG"
+          gh release upload "$TAG" dist/*.dmg --clobber
