@@ -4,10 +4,10 @@ import screenshot from '../assets/screenshot.png'
 import Nav from '../components/Nav'
 
 const REPO = 'https://github.com/Jeffrey0117/SpeakSlow'
-// 一鍵直接下載最新版 exe（不丟到 Releases 頁讓人猜要點哪個檔）
-const DOWNLOAD = `${REPO}/releases/download/v1.0.9/SpeakSlow-Setup-1.0.9.exe`
-const DOWNLOAD_MAC = `${REPO}/releases/download/v1.0.9/SpeakSlow-1.0.9-arm64.dmg`
-const DOWNLOAD_LINUX = `${REPO}/releases/download/v1.0.9/SpeakSlow-1.0.9.AppImage`
+// 永久連結：永遠指向最新 release 的固定檔名，發版後不用再改官網
+const DOWNLOAD = `${REPO}/releases/latest/download/SpeakSlow-Setup.exe`
+const DOWNLOAD_MAC = `${REPO}/releases/latest/download/SpeakSlow-arm64.dmg`
+const DOWNLOAD_LINUX = `${REPO}/releases/latest/download/SpeakSlow.AppImage`
 
 export default function HomePage() {
   return (
