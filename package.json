@@ -1,6 +1,6 @@
 {
   "name": "speakslow",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "聲聲慢 SpeakSlow - 專為中文打造、最快的本地語音輸入（sherpa-onnx）",
   "main": "main.js",
   "private": true,
@@ -158,6 +158,7 @@
     "linux": {
       "icon": "assets/icon.png",
       "category": "Office",
+      "artifactName": "${productName}.${ext}",
       "target": [
         "AppImage"
       ]
@@ -166,6 +167,7 @@
       "icon": "assets/icon.icns",
       "category": "public.app-category.productivity",
       "identity": null,
+      "artifactName": "${productName}-${arch}.${ext}",
       "target": [
         {
           "target": "dmg",
