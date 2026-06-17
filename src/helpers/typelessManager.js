@@ -24,6 +24,7 @@ class TypelessManager {
     this.isActive = false;   // toggle 模式：目前是否正在錄音
     this.triggerHeld = false; // 防止長按時的自動重複觸發
     this.lastKeyDownTime = 0; // 上次觸發鍵 keydown 的時間（解「漏接 keyup」卡死用）
+    this._macAxTimer = null;  // Mac：等「輔助使用」授權的輪詢 timer
 
     // 回調函數
     this.onStartRecording = null;
@@ -138,6 +139,16 @@ class TypelessManager {
       return;
     }
 
+    // Mac：沒有「輔助使用」(Accessibility) 權限就呼叫 uIOhook.start() 會「原生崩潰」
+    // （segfault，try/catch 攔不住）→ 一啟動就掛、自動重開又掛 → crash-loop。
+    // 先檢查；沒權限就提示 + 輪詢，等使用者授權後再真的啟動全域熱鍵。
+    if (process.platform === 'darwin' && !this._hasMacAccessibility()) {
+      this.safeLog('warn', 'Mac 尚未授權「輔助使用」，待授權後再啟動全域熱鍵（避免崩潰）');
+      this._promptMacAccessibility();
+      this._waitMacAccessibilityThenEnable();
+      return;
+    }
+
     try {
       // 註冊事件監聽器
       uIOhook.on('keydown', this.handleKeyDown);
@@ -149,15 +160,46 @@ class TypelessManager {
       this.isEnabled = true;
       this.safeLog('info', 'TypeLess 模式已啟用');
     } catch (error) {
+      // 不再 throw：啟用全域熱鍵失敗不該讓整個 app 崩潰
       this.safeLog('error', 'TypeLess 模式啟用失敗', error);
-      throw error;
     }
+  }
+
+  // Mac：是否已取得「輔助使用」權限。非 Mac / API 不存在 → 視為 OK（照舊行為）。
+  _hasMacAccessibility() {
+    try {
+      const { systemPreferences } = require('electron');
+      if (typeof systemPreferences.isTrustedAccessibilityClient !== 'function') return true;
+      return systemPreferences.isTrustedAccessibilityClient(false);
+    } catch (e) {
+      return true;
+    }
+  }
+  _promptMacAccessibility() {
+    try {
+      const { systemPreferences } = require('electron');
+      systemPreferences.isTrustedAccessibilityClient(true); // 跳系統授權對話框
+    } catch (e) { /* ignore */ }
+  }
+  _waitMacAccessibilityThenEnable() {
+    if (this._macAxTimer) return;
+    this._macAxTimer = setInterval(() => {
+      if (this._hasMacAccessibility()) {
+        clearInterval(this._macAxTimer);
+        this._macAxTimer = null;
+        this.enable(); // 拿到權限 → 正式啟動
+      }
+    }, 1500);
   }
 
   /**
    * 停用 TypeLess 模式
    */
   disable() {
+    if (this._macAxTimer) {
+      clearInterval(this._macAxTimer);
+      this._macAxTimer = null;
+    }
     if (!this.isEnabled) {
       return;
     }
