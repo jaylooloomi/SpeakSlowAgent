@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from "react";
 import { Bot, Check, X, RefreshCw, Square, Clock, Loader2, CheckCircle2 } from "lucide-react";
+import { useTranslation } from "../i18n";
 
 export default function AgentPanel() {
+  const { t } = useTranslation();
+  const T = (k, p) => t("settings.agentTab." + k, p); // 縮寫
+
   const [backends, setBackends] = useState(null);
   const [cfg, setCfg] = useState({ cli: "claude-code", source: "anthropic", anthropicModel: "sonnet", codexModel: "gpt-5-codex", ollamaModel: "minimax-m2.5:cloud", workMode: "general", enabled: false, projectDir: "" });
-  const [tasks, setTasks] = useState([]); // {id, status, prompt, text}
+  const [tasks, setTasks] = useState([]); // {id, status, prompt, text, tools}
   const [models, setModels] = useState([]); // [{name, tier, label?}]
   const [showAll, setShowAll] = useState(false);
   const [checking, setChecking] = useState(false);
-  const [expandedId, setExpandedId] = useState(null); // 已完成:展開查看細節的 id
-  const [dismissed, setDismissed] = useState([]);      // 已完成:打勾後隱藏的 id
+  const [expandedId, setExpandedId] = useState(null);
+  const [dismissed, setDismissed] = useState([]);
 
   const api = window.electronAPI || {};
   const refresh = () => api.agentDetectBackends?.().then(setBackends).catch(() => {});
@@ -24,14 +28,13 @@ export default function AgentPanel() {
   useEffect(() => {
     if (!api.onAgentTaskUpdate) return;
     return api.onAgentTaskUpdate((p) => setTasks((prev) => {
-      const i = prev.findIndex((t) => t.id === p.id);
+      const i = prev.findIndex((t2) => t2.id === p.id);
       if (i >= 0) { const n = [...prev]; n[i] = p; return n; }
       return [p, ...prev].slice(0, 30);
     }));
   }, []);
   const set = (patch) => { setCfg((c) => ({ ...c, ...patch })); api.agentSetConfig?.(patch); };
 
-  // 選 CLI:claude code → 來源可選 anthropic/ollama;codex → chatgpt/ollama。換 CLI 時若來源失效則改預設。
   const validSources = (cli) => (cli === "codex" ? ["chatgpt", "ollama"] : ["anthropic", "ollama"]);
   const onCli = (cli) => {
     const valid = validSources(cli);
@@ -55,7 +58,6 @@ export default function AgentPanel() {
   );
   const Dot = ({ on }) => <span className={"w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 " + (on ? "border-sky-500 bg-sky-500" : "border-gray-400 dark:border-gray-500")} />;
 
-  // CLI 工具列:claude code / codex 可選(radio);ollama 僅安裝狀態。
   const CliRow = ({ k, label, installed, onInstall, selectable }) => {
     const selected = selectable && cfg.cli === k;
     return (
@@ -67,11 +69,10 @@ export default function AgentPanel() {
           {installed ? <Check className="w-4 h-4 text-green-500" /> : <X className="w-4 h-4 text-red-500" />}
           {label}
         </span>
-        {!installed && <Btn onClick={(e) => { e.stopPropagation && e.stopPropagation(); act(onInstall); }}>安裝</Btn>}
+        {!installed && <Btn onClick={(e) => { e.stopPropagation && e.stopPropagation(); act(onInstall); }}>{T("install")}</Btn>}
       </div>
     );
   };
-  // 模型來源列:可選(radio)+ 登入狀態 + 登入/切換/登出。
   const SourceRow = ({ k, label, loggedIn, onLogin, onLogout, onSwitch }) => {
     const selected = cfg.source === k;
     return (
@@ -84,8 +85,8 @@ export default function AgentPanel() {
           {loggedIn ? <Check className="w-4 h-4 text-green-500" /> : <X className="w-4 h-4 text-red-500" />}
         </span>
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          <Btn ghost onClick={() => act(loggedIn ? onSwitch : onLogin)}>{loggedIn ? "切換帳號" : "登入"}</Btn>
-          <Btn ghost onClick={() => act(onLogout)}>登出</Btn>
+          <Btn ghost onClick={() => act(loggedIn ? onSwitch : onLogin)}>{loggedIn ? T("switchAccount") : T("login")}</Btn>
+          <Btn ghost onClick={() => act(onLogout)}>{T("logout")}</Btn>
         </div>
       </div>
     );
@@ -102,28 +103,30 @@ export default function AgentPanel() {
   const modelValue = isAnthropic ? cfg.anthropicModel : isOllama ? cfg.ollamaModel : cfg.codexModel;
   const setModel = (v) => { if (isAnthropic) set({ anthropicModel: v }); else if (isOllama) set({ ollamaModel: v }); else set({ codexModel: v }); };
   const hasCurrent = models.some((m) => m.name === modelValue);
-  const labelFor = (m) => m.label || (isOllama ? m.name + (m.tier === "subscription" ? " — 需訂閱" : m.tier === "unknown" ? " — 未知" : " — 免費") : m.name);
+  const labelFor = (m) => m.label || (isOllama ? m.name + " — " + (m.tier === "subscription" ? T("tierSub") : m.tier === "unknown" ? T("tierUnknown") : T("tierFree")) : m.name);
 
-  const running = tasks.filter((t) => t.status === "running");
-  const queued = tasks.filter((t) => t.status === "queued");
-  const done = tasks.filter((t) => ["done", "error", "stopped", "cancelled"].includes(t.status) && !dismissed.includes(t.id));
+  const running = tasks.filter((t2) => t2.status === "running");
+  const queued = tasks.filter((t2) => t2.status === "queued");
+  const done = tasks.filter((t2) => ["done", "error", "stopped", "cancelled"].includes(t2.status) && !dismissed.includes(t2.id));
+
+  const cliName = cfg.cli === "codex" ? T("cliCodex") : T("cliClaudeCode");
 
   return (
     <div>
       <div className="flex items-center gap-2 mb-1">
         <Bot className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">代理 Agent</h3>
-        <button onClick={refresh} title="重新偵測" className="ml-auto p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><RefreshCw className="w-4 h-4" /></button>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{T("title")}</h3>
+        <button onClick={refresh} title={T("redetect")} className="ml-auto p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><RefreshCw className="w-4 h-4" /></button>
       </div>
-      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">把辨識出來的語音,交給所選「CLI + 模型來源」在工作目錄執行任務。開啟「Agent 模式」後,按右 Alt 講的話會交給 agent 執行(而非貼到游標)。</p>
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{T("desc")}</p>
 
-      <Section title="CLI 工具(選擇用哪個跑 agent;Ollama 僅需安裝)">
-        <CliRow k="claude-code" label="Claude Code 已安裝" installed={!!backends?.claudeCode} onInstall={api.agentInstallClaude} selectable />
-        <CliRow k="codex" label="Codex 已安裝" installed={!!backends?.codex} onInstall={api.agentInstallCodex} selectable />
-        <CliRow k="ollama" label="Ollama 已安裝" installed={!!backends?.ollama} onInstall={api.agentInstallOllama} selectable={false} />
+      <Section title={T("cliSection")}>
+        <CliRow k="claude-code" label={T("claudeInstalled")} installed={!!backends?.claudeCode} onInstall={api.agentInstallClaude} selectable />
+        <CliRow k="codex" label={T("codexInstalled")} installed={!!backends?.codex} onInstall={api.agentInstallCodex} selectable />
+        <CliRow k="ollama" label={T("ollamaInstalled")} installed={!!backends?.ollama} onInstall={api.agentInstallOllama} selectable={false} />
       </Section>
 
-      <Section title={`模型來源(${cfg.cli === "codex" ? "Codex" : "Claude Code"} 可用;點選使用 + 登入/切換/登出)`}>
+      <Section title={T("sourceSection", { cli: cliName })}>
         {validSources(cfg.cli).map((k) => {
           const m = SOURCE_META[k];
           return <SourceRow key={k} k={k} label={m.label} loggedIn={m.loggedIn} onLogin={m.onLogin} onLogout={m.onLogout} onSwitch={m.onSwitch} />;
@@ -132,18 +135,18 @@ export default function AgentPanel() {
 
       <div className="mb-5">
         <div className="flex items-center justify-between mb-2">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">模型選擇</h4>
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">{T("modelSection")}</h4>
           {isOllama && (
             <div className="flex items-center gap-3">
               <button onClick={checkAvailability} disabled={checking}
                 className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:text-blue-700 disabled:opacity-50">
-                <RefreshCw className={"w-3 h-3" + (checking ? " animate-spin" : "")} />檢查可用性
+                <RefreshCw className={"w-3 h-3" + (checking ? " animate-spin" : "")} />{T("checkAvailability")}
               </button>
               <label className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
                 <input type="checkbox" checked={showAll}
                   onChange={(e) => { setShowAll(e.target.checked); loadModels({ source: "ollama", showAll: e.target.checked }); }}
                   className="w-3.5 h-3.5 accent-blue-500" />
-                顯示全部
+                {T("showAll")}
               </label>
             </div>
           )}
@@ -156,65 +159,64 @@ export default function AgentPanel() {
       </div>
 
       <label className="flex items-center justify-between p-3 bg-sky-50 dark:bg-sky-900/20 rounded-lg mb-5 cursor-pointer">
-        <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Agent 模式{cfg.enabled && <span className="ml-2 text-xs text-sky-600 dark:text-sky-400">● ON</span>}</span>
+        <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{T("agentMode")}{cfg.enabled && <span className="ml-2 text-xs text-sky-600 dark:text-sky-400">● {T("on")}</span>}</span>
         <input type="checkbox" checked={cfg.enabled} onChange={(e) => set({ enabled: e.target.checked })} className="w-4 h-4 accent-sky-500" />
       </label>
 
-      {/* 排隊中:編號 + 排隊中標籤 + 取消 */}
-      <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 flex items-center gap-1"><Clock className="w-3.5 h-3.5" />排隊中</h4>
-      {queued.length === 0 ? <p className="text-xs text-gray-400 mb-3">無</p> : queued.map((t, i) => (
-        <div key={t.id} className="flex items-center justify-between gap-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg mb-2">
-          <span className="text-sm truncate text-gray-800 dark:text-gray-200">{i + 1}. {t.prompt}</span>
+      {/* 排隊中:編號 + 標籤 + 取消 */}
+      <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{T("queued")}</h4>
+      {queued.length === 0 ? <p className="text-xs text-gray-400 mb-3">{T("none")}</p> : queued.map((t2, i) => (
+        <div key={t2.id} className="flex items-center justify-between gap-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg mb-2">
+          <span className="text-sm truncate text-gray-800 dark:text-gray-200">{i + 1}. {t2.prompt}</span>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <span className="text-xs text-gray-400">排隊中</span>
-            <button onClick={() => api.agentCancelTask?.(t.id)} className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-red-600"><X className="w-3 h-3" />取消</button>
+            <span className="text-xs text-gray-400">{T("queued")}</span>
+            <button onClick={() => api.agentCancelTask?.(t2.id)} className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-red-600"><X className="w-3 h-3" />{T("cancel")}</button>
           </div>
         </div>
       ))}
 
-      {/* 執行中:進行中標籤 + 停止 + 即時串流(工具呼叫 🔧 + 文字) */}
-      <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 mt-3 flex items-center gap-1"><Loader2 className={"w-3.5 h-3.5" + (running.length ? " animate-spin" : "")} />執行中</h4>
-      {running.length === 0 ? <p className="text-xs text-gray-400 mb-3">無</p> : running.map((t) => (
-        <div key={t.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg mb-2">
+      {/* 執行中:進行中標籤 + 停止 + 即時串流(🔧 + 文字) */}
+      <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 mt-3 flex items-center gap-1"><Loader2 className={"w-3.5 h-3.5" + (running.length ? " animate-spin" : "")} />{T("running")}</h4>
+      {running.length === 0 ? <p className="text-xs text-gray-400 mb-3">{T("none")}</p> : running.map((t2) => (
+        <div key={t2.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg mb-2">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-sm truncate text-gray-800 dark:text-gray-200">▶ {t.prompt}</span>
+            <span className="text-sm truncate text-gray-800 dark:text-gray-200">▶ {t2.prompt}</span>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <span className="text-xs text-sky-600 dark:text-sky-400">進行中</span>
-              <button onClick={() => api.agentStopTask?.()} className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:text-red-700"><Square className="w-3 h-3" />停止</button>
+              <span className="text-xs text-sky-600 dark:text-sky-400">{T("inProgress")}</span>
+              <button onClick={() => api.agentStopTask?.()} className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:text-red-700"><Square className="w-3 h-3" />{T("stop")}</button>
             </div>
           </div>
-          {t.tools?.map((tool, i) => <div key={i} className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate mt-1">🔧 {tool}</div>)}
-          {t.text && <div className="text-xs text-gray-600 dark:text-gray-300 mt-1 whitespace-pre-wrap line-clamp-4">{t.text}</div>}
+          {t2.tools?.map((tool, i) => <div key={i} className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate mt-1">🔧 {tool}</div>)}
+          {t2.text && <div className="text-xs text-gray-600 dark:text-gray-300 mt-1 whitespace-pre-wrap line-clamp-4">{t2.text}</div>}
         </div>
       ))}
 
-      {/* 已完成:○成功/✗失敗 打勾移除 + 展開細節(工具+結果)+ 狀態標籤 */}
-      <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 mt-3 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" />已完成</h4>
-      {done.length === 0 ? <p className="text-xs text-gray-400">無</p> : done.map((t) => {
-        const ok = t.status === "done";
-        const failed = t.status === "error";
-        const hasDetail = (t.tools && t.tools.length) || !!t.text;
-        const expanded = expandedId === t.id;
+      {/* 已完成:○/✗ 打勾移除 + 展開細節 + 狀態標籤 */}
+      <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 mt-3 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" />{T("completed")}</h4>
+      {done.length === 0 ? <p className="text-xs text-gray-400">{T("none")}</p> : done.map((t2) => {
+        const failed = t2.status === "error";
+        const hasDetail = (t2.tools && t2.tools.length) || !!t2.text;
+        const expanded = expandedId === t2.id;
         return (
-          <div key={t.id} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg mb-2">
+          <div key={t2.id} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg mb-2">
             <div className="flex items-center gap-2 p-3">
-              <button onClick={() => setDismissed((d) => [...d, t.id])} title="標記完成 / 從清單移除"
+              <button onClick={() => setDismissed((d) => [...d, t2.id])} title={T("dismissTip")}
                 className={"text-sm font-bold w-4 flex-shrink-0 " + (failed ? "text-red-500 hover:text-red-600" : "text-green-500 hover:text-green-600")}>
                 {failed ? "✗" : "○"}
               </button>
               {hasDetail ? (
-                <button onClick={() => setExpandedId(expanded ? null : t.id)} className="flex-1 min-w-0 flex items-center gap-1 text-left text-sm text-gray-800 dark:text-gray-200">
-                  <span className="text-gray-400 flex-shrink-0">{expanded ? "▾" : "▸"}</span><span className="truncate">{t.prompt}</span>
+                <button onClick={() => setExpandedId(expanded ? null : t2.id)} className="flex-1 min-w-0 flex items-center gap-1 text-left text-sm text-gray-800 dark:text-gray-200">
+                  <span className="text-gray-400 flex-shrink-0">{expanded ? "▾" : "▸"}</span><span className="truncate">{t2.prompt}</span>
                 </button>
-              ) : <span className="flex-1 min-w-0 text-sm truncate text-gray-800 dark:text-gray-200">{t.prompt}</span>}
-              {failed && <span className="text-xs text-red-500 flex-shrink-0">失敗</span>}
-              {t.status === "stopped" && <span className="text-xs text-gray-400 flex-shrink-0">已停止</span>}
-              {t.status === "cancelled" && <span className="text-xs text-gray-400 flex-shrink-0">已取消</span>}
+              ) : <span className="flex-1 min-w-0 text-sm truncate text-gray-800 dark:text-gray-200">{t2.prompt}</span>}
+              {failed && <span className="text-xs text-red-500 flex-shrink-0">{T("failed")}</span>}
+              {t2.status === "stopped" && <span className="text-xs text-gray-400 flex-shrink-0">{T("stopped")}</span>}
+              {t2.status === "cancelled" && <span className="text-xs text-gray-400 flex-shrink-0">{T("cancelled")}</span>}
             </div>
             {expanded && hasDetail && (
               <div className="px-3 pb-3 -mt-1">
-                {t.tools?.map((tool, i) => <div key={i} className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate">🔧 {tool}</div>)}
-                {t.text && <div className="text-xs text-gray-600 dark:text-gray-300 mt-1 whitespace-pre-wrap">{t.text}</div>}
+                {t2.tools?.map((tool, i) => <div key={i} className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate">🔧 {tool}</div>)}
+                {t2.text && <div className="text-xs text-gray-600 dark:text-gray-300 mt-1 whitespace-pre-wrap">{t2.text}</div>}
               </div>
             )}
           </div>
