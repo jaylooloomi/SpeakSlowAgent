@@ -120,8 +120,14 @@ export default {
       hotwords: 'Hotwords',
       dictionary: 'Dictionary',
       emoji: 'Symbols',
+      agent: 'Agent',
       permissions: 'Permissions',
       about: 'About'
+    },
+    agentTab: {
+      title: 'Agent',
+      description: 'Hand your dictated speech to an AI agent to run tasks.',
+      comingSoon: 'Coming soon…'
     },
     emoji: {
       title: 'Voice symbols',

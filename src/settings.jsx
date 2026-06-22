@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 import { toast, Toaster } from "sonner";
-import { Settings, Save, Eye, EyeOff, X, Loader2, TestTube, CheckCircle, XCircle, Mic, Shield, Globe, Keyboard, Sparkles, BookText, Tag, History, Info, Heart, Smile } from "lucide-react";
+import { Settings, Save, Eye, EyeOff, X, Loader2, TestTube, CheckCircle, XCircle, Mic, Shield, Globe, Keyboard, Sparkles, BookText, Tag, History, Info, Heart, Smile, Bot } from "lucide-react";
 import { usePermissions } from "./hooks/usePermissions";
 import PermissionCard from "./components/ui/permission-card";
 import HotkeySettings from "./components/HotkeySettings";
@@ -21,6 +21,7 @@ const SETTINGS_TABS = [
   { id: 'hotwords', labelKey: 'settings.tabs.hotwords', icon: Tag },
   { id: 'dictionary', labelKey: 'settings.tabs.dictionary', icon: BookText },
   { id: 'emoji', labelKey: 'settings.tabs.emoji', icon: Smile },
+  { id: 'agent', labelKey: 'settings.tabs.agent', icon: Bot },
   { id: 'permissions', labelKey: 'settings.tabs.permissions', icon: Shield },
   { id: 'about', labelKey: 'settings.tabs.about', icon: Info },
 ];
@@ -960,6 +961,26 @@ const SettingsPage = () => {
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 mb-6">
             <div className="p-6">
               <EmojiManager t={t} />
+            </div>
+          </div>
+
+            )}
+
+            {activeTab === 'agent' && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 mb-6">
+            <div className="p-6">
+              <div className="mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 chinese-title">
+                  {t('settings.agentTab.title')}
+                </h2>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  {t('settings.agentTab.description')}
+                </p>
+              </div>
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Bot className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-3" />
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('settings.agentTab.comingSoon')}</p>
+              </div>
             </div>
           </div>
 

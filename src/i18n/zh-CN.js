@@ -120,8 +120,14 @@ export default {
       hotwords: '热词',
       dictionary: '字典',
       emoji: '符号',
+      agent: '代理 Agent',
       permissions: '权限管理',
       about: '关于'
+    },
+    agentTab: {
+      title: '代理 Agent',
+      description: '把识别出来的语音，交给 AI 代理去执行任务。',
+      comingSoon: '功能开发中，敬请期待…'
     },
     emoji: {
       title: '语音符号',
