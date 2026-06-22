@@ -67,9 +67,14 @@ class AgentManager {
   }
 
   _emit(payload) {
-    const wm = this.windowManager;
-    const send = (w) => { if (w && !w.isDestroyed()) w.webContents.send("agent-task-update", payload); };
-    if (wm) { send(wm.mainWindow); send(wm.settingsWindow); }
+    // 廣播到所有視窗:主視窗(App.jsx 監聽通知)與設定視窗(AgentPanel 任務列表)
+    // 都要收到。windowManager 不一定有 settingsWindow 參照,故直接列舉所有視窗最穩。
+    try {
+      const { BrowserWindow } = require("electron");
+      for (const w of BrowserWindow.getAllWindows()) {
+        if (w && !w.isDestroyed()) w.webContents.send("agent-task-update", payload);
+      }
+    } catch (e) { /* 視窗尚未就緒 / 無視窗 */ }
   }
 }
 
