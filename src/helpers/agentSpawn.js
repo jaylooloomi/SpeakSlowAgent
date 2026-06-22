@@ -15,13 +15,15 @@ function buildAgentSpawn({ prompt, model, cwd, systemPrompt, cli = "claude-code"
   if (cli === "codex") {
     // Codex 無 --append-system-prompt → 系統提示前綴進 prompt。
     // --dangerously-bypass-approvals-and-sandbox = Claude 的 --dangerously-skip-permissions 對等。
-    // source="ollama" → 用 Codex 的本地 OSS 供應商(ollama);否則走 ChatGPT 帳號預設。
-    const oss = source === "ollama" ? ["--oss", "--local-provider", "ollama"] : [];
+    // source="ollama" → 本地 OSS 供應商(ollama)+ 指定模型;
+    // source="chatgpt" → 用 ChatGPT 帳號的伺服器固定模型,**不可帶 -m**
+    //   (帶 gpt-5-codex 等會被 400「not supported when using Codex with a ChatGPT account」拒絕)。
+    const modelArgs = source === "ollama" ? ["--oss", "--local-provider", "ollama", "-m", model] : [];
     return {
       program: "codex",
       args: [
         "exec", "--json", "--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox",
-        ...oss, "-m", model, "-C", cwd, `${systemPrompt}\n\n${prompt}`,
+        ...modelArgs, "-C", cwd, `${systemPrompt}\n\n${prompt}`,
       ],
       cwd,
       env: {},

@@ -142,6 +142,7 @@ export default {
       tierFree: '免費',
       tierSub: '需訂閱',
       tierUnknown: '未知',
+      codexDefault: 'ChatGPT 預設模型',
       agentMode: 'Agent 模式',
       on: 'ON',
       queued: '排隊中',

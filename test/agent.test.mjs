@@ -25,17 +25,18 @@ test("claude-code + ollama source: via `ollama launch claude`, --model + output 
   assert.equal(s.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS, "16384");
 });
 
-test("codex: via `codex exec --json`, full bypass, model, cwd, sys-prompt prefixed", () => {
-  const s = buildAgentSpawn({ prompt: "整理桌面", model: "gpt-5-codex", cwd: "C:\\w", systemPrompt: "SYS", cli: "codex" });
+test("codex + chatgpt: full bypass, NO -m (ChatGPT account rejects model selection)", () => {
+  const s = buildAgentSpawn({ prompt: "整理桌面", model: "default", cwd: "C:\\w", systemPrompt: "SYS", cli: "codex", source: "chatgpt" });
   assert.equal(s.program, "codex");
   assert.deepEqual(s.args, [
     "exec", "--json", "--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox",
-    "-m", "gpt-5-codex", "-C", "C:\\w", "SYS\n\n整理桌面",
+    "-C", "C:\\w", "SYS\n\n整理桌面",
   ]);
-  assert.equal(s.cwd, "C:\\w");
+  assert.ok(!s.args.includes("-m"), "ChatGPT account must not get -m (400)");
+  assert.ok(!s.args.includes("--oss"));
 });
 
-test("codex + ollama source: adds --oss --local-provider ollama", () => {
+test("codex + ollama source: adds --oss --local-provider ollama -m <model>", () => {
   const s = buildAgentSpawn({ prompt: "hi", model: "gpt-oss:20b-cloud", cwd: "C:\\w", systemPrompt: "SYS", cli: "codex", source: "ollama" });
   assert.equal(s.program, "codex");
   assert.deepEqual(s.args, [
@@ -43,11 +44,6 @@ test("codex + ollama source: adds --oss --local-provider ollama", () => {
     "--oss", "--local-provider", "ollama",
     "-m", "gpt-oss:20b-cloud", "-C", "C:\\w", "SYS\n\nhi",
   ]);
-});
-
-test("codex + chatgpt source (no source / chatgpt): no --oss", () => {
-  const s = buildAgentSpawn({ prompt: "hi", model: "gpt-5-codex", cwd: "C:\\w", systemPrompt: "SYS", cli: "codex", source: "chatgpt" });
-  assert.ok(!s.args.includes("--oss"));
 });
 
 test("defaults to claude-code anthropic when cli/source omitted", () => {

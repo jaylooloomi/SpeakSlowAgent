@@ -65,7 +65,8 @@ module.exports = function register(ctx) {
       return { source, default: catalog.CLAUDE_DEFAULT_MODEL, models: catalog.CLAUDE_MODELS.map((name) => ({ name, tier: "anthropic" })) };
     }
     if (source === "chatgpt") {
-      return { source, default: catalog.CODEX_DEFAULT_MODEL, models: catalog.CODEX_MODELS.map((name) => ({ name, tier: "chatgpt" })) };
+      // ChatGPT 帳號用伺服器固定模型(不能選、帶 -m 會 400)→ 只給單一「預設」項。
+      return { source, default: "default", models: [{ name: "default", tier: "chatgpt" }] };
     }
     let available = null; // ollama:可 live 掃描雲端目錄
     if (live) {
@@ -111,7 +112,7 @@ module.exports = function register(ctx) {
     const source = ctx.databaseManager.getSetting("agent_source", "anthropic");
     let cli, model;
     if (source === "anthropic") { cli = "claude-code"; model = ctx.databaseManager.getSetting("agent_anthropic_model", catalog.CLAUDE_DEFAULT_MODEL); }
-    else if (source === "chatgpt") { cli = "codex"; model = ctx.databaseManager.getSetting("agent_codex_model", catalog.CODEX_DEFAULT_MODEL); }
+    else if (source === "chatgpt") { cli = "codex"; model = "default"; } // ChatGPT 帳號不帶 -m,model 僅佔位
     else { cli = ctx.databaseManager.getSetting("agent_cli", "claude-code"); model = ctx.databaseManager.getSetting("agent_ollama_model", catalog.DEFAULT_MODEL); } // ollama
     return ctx.agentManager.runTask({ prompt: text, model, cwd: resolveCwd(), cli, source });
   });

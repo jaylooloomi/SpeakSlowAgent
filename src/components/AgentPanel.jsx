@@ -100,10 +100,15 @@ export default function AgentPanel() {
 
   const isOllama = cfg.source === "ollama";
   const isAnthropic = cfg.source === "anthropic";
-  const modelValue = isAnthropic ? cfg.anthropicModel : isOllama ? cfg.ollamaModel : cfg.codexModel;
-  const setModel = (v) => { if (isAnthropic) set({ anthropicModel: v }); else if (isOllama) set({ ollamaModel: v }); else set({ codexModel: v }); };
+  const isChatgpt = cfg.source === "chatgpt";
+  // ChatGPT 帳號模型由伺服器固定 → 單一「預設」項,不可選。
+  const modelValue = isAnthropic ? cfg.anthropicModel : isOllama ? cfg.ollamaModel : "default";
+  const setModel = (v) => { if (isAnthropic) set({ anthropicModel: v }); else if (isOllama) set({ ollamaModel: v }); };
   const hasCurrent = models.some((m) => m.name === modelValue);
-  const labelFor = (m) => m.label || (isOllama ? m.name + " — " + (m.tier === "subscription" ? T("tierSub") : m.tier === "unknown" ? T("tierUnknown") : T("tierFree")) : m.name);
+  const labelFor = (m) => m.label
+    || (isChatgpt && m.name === "default" ? T("codexDefault")
+      : isOllama ? m.name + " — " + (m.tier === "subscription" ? T("tierSub") : m.tier === "unknown" ? T("tierUnknown") : T("tierFree"))
+        : m.name);
 
   const running = tasks.filter((t2) => t2.status === "running");
   const queued = tasks.filter((t2) => t2.status === "queued");
@@ -151,8 +156,8 @@ export default function AgentPanel() {
             </div>
           )}
         </div>
-        <select value={modelValue} onChange={(e) => setModel(e.target.value)}
-          className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+        <select value={modelValue} onChange={(e) => setModel(e.target.value)} disabled={isChatgpt}
+          className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 disabled:opacity-70">
           {!hasCurrent && <option value={modelValue}>{modelValue}</option>}
           {models.map((m) => <option key={m.name} value={m.name}>{labelFor(m)}</option>)}
         </select>

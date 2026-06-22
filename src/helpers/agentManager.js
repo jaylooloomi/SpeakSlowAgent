@@ -14,6 +14,25 @@ function claudeProgram() {
   try { require("fs").accessSync(p); return p; } catch { return "claude"; }
 }
 
+// codex 在 Windows 由 npm 裝成 .cmd shim(PATH 上沒有 codex.exe)→ Node 無 shell 的 spawn 會 ENOENT。
+// 解析 shim 背後的 codex.js,改用 `node <codex.js>`(node 是真 .exe;參數走 argv 陣列、無 shell,
+// 故 prompt 含換行/特殊字元也安全,沒有命令注入)。回傳要前置的 {program, args};null = 維持原樣。
+function codexProgram() {
+  if (process.platform !== "win32") return null; // mac/linux 的 codex 多為真執行檔,原樣 spawn 即可
+  try {
+    const { execFileSync } = require("child_process");
+    const fs = require("fs");
+    const out = execFileSync("where", ["codex"], { encoding: "utf8", windowsHide: true, timeout: 5000 });
+    for (const line of out.split(/\r?\n/)) {
+      const p = line.trim();
+      if (!p) continue;
+      const js = path.join(path.dirname(p), "node_modules", "@openai", "codex", "bin", "codex.js");
+      if (fs.existsSync(js)) return { program: "node", args: [js] };
+    }
+  } catch (e) { /* 找不到 → 退回原樣 */ }
+  return null;
+}
+
 class AgentManager {
   // deps:{ spawn, emit } 供測試注入(預設用真 child_process.spawn 與廣播到所有視窗)。
   constructor(logger, windowManager, deps = {}) {
@@ -46,10 +65,16 @@ class AgentManager {
     const { id, prompt, model, cwd, cli, source } = item;
     const spec = buildAgentSpawn({ prompt, model, cwd, systemPrompt: AGENT_SYSTEM_PROMPT, cli, source });
     if (spec.program === "claude") spec.program = claudeProgram();
+    else if (spec.program === "codex") {
+      const c = codexProgram(); // Windows:codex.cmd → `node codex.js`
+      if (c) { spec.program = c.program; spec.args = [...c.args, ...spec.args]; }
+    }
 
     let child;
     try {
-      child = this._spawn(spec.program, spec.args, { cwd, env: { ...process.env, ...spec.env }, windowsHide: true });
+      // stdin: "ignore" → CLI 立即拿到 EOF,不會卡在等 stdin。
+      // (codex exec 給了 prompt 又看到開著的 stdin pipe 會一直讀到 EOF → 永久卡住;claude 也會等 3 秒。)
+      child = this._spawn(spec.program, spec.args, { cwd, env: { ...process.env, ...spec.env }, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
     } catch (e) {
       this.current = null;
       this._emit({ id, status: "error", prompt, text: "啟動失敗: " + e.message });

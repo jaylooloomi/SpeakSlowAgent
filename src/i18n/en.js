@@ -142,6 +142,7 @@ export default {
       tierFree: 'Free',
       tierSub: 'Subscription',
       tierUnknown: 'Unknown',
+      codexDefault: 'ChatGPT default model',
       agentMode: 'Agent mode',
       on: 'ON',
       queued: 'Queued',

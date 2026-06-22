@@ -142,6 +142,7 @@ export default {
       tierFree: '免费',
       tierSub: '需订阅',
       tierUnknown: '未知',
+      codexDefault: 'ChatGPT 默认模型',
       agentMode: 'Agent 模式',
       on: 'ON',
       queued: '排队中',
