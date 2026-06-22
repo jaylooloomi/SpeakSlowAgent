@@ -34,6 +34,21 @@ test("codex: via `codex exec --json`, full bypass, model, cwd, sys-prompt prefix
   assert.equal(s.cwd, "C:\\w");
 });
 
+test("codex + ollama source: adds --oss --local-provider ollama", () => {
+  const s = buildAgentSpawn({ prompt: "hi", model: "gpt-oss:20b-cloud", cwd: "C:\\w", systemPrompt: "SYS", cli: "codex", source: "ollama" });
+  assert.equal(s.program, "codex");
+  assert.deepEqual(s.args, [
+    "exec", "--json", "--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox",
+    "--oss", "--local-provider", "ollama",
+    "-m", "gpt-oss:20b-cloud", "-C", "C:\\w", "SYS\n\nhi",
+  ]);
+});
+
+test("codex + chatgpt source (no source / chatgpt): no --oss", () => {
+  const s = buildAgentSpawn({ prompt: "hi", model: "gpt-5-codex", cwd: "C:\\w", systemPrompt: "SYS", cli: "codex", source: "chatgpt" });
+  assert.ok(!s.args.includes("--oss"));
+});
+
 test("cli defaults to claude-code when omitted (regression)", () => {
   const s = buildAgentSpawn({ prompt: "hi", model: "claude", cwd: "C:\\w", systemPrompt: "SYS" });
   assert.equal(s.program, "claude");

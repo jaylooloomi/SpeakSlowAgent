@@ -75,6 +75,7 @@ module.exports = function register(ctx) {
   });
 
   ipcMain.handle("agent-get-config", () => ({
+    cli: ctx.databaseManager.getSetting("agent_cli", "claude-code"),
     source: ctx.databaseManager.getSetting("agent_source", "anthropic"),
     codexModel: ctx.databaseManager.getSetting("agent_codex_model", catalog.CODEX_DEFAULT_MODEL),
     ollamaModel: ctx.databaseManager.getSetting("agent_ollama_model", catalog.DEFAULT_MODEL),
@@ -85,7 +86,7 @@ module.exports = function register(ctx) {
 
   ipcMain.handle("agent-set-config", (e, patch) => {
     const map = {
-      source: "agent_source", codexModel: "agent_codex_model", ollamaModel: "agent_ollama_model",
+      cli: "agent_cli", source: "agent_source", codexModel: "agent_codex_model", ollamaModel: "agent_ollama_model",
       workMode: "agent_work_mode", enabled: "agent_mode_enabled", projectDir: "agent_project_dir",
     };
     for (const [k, v] of Object.entries(patch || {})) { if (map[k]) ctx.databaseManager.setSetting(map[k], v); }
@@ -101,14 +102,16 @@ module.exports = function register(ctx) {
     return dir;
   }
 
-  // 由「模型來源」衍生 cli + model。
+  // 由「CLI 工具」+「模型來源」衍生實際 cli/model:
+  //  anthropic→claude-code+claude;chatgpt→codex+codexModel;ollama→agent_cli(可 claude-code 或 codex)+ollamaModel。
   ipcMain.handle("agent-run-task", (e, text) => {
     if (!text || !text.trim()) return { success: false, error: "空白指令" };
     const source = ctx.databaseManager.getSetting("agent_source", "anthropic");
-    let cli = "claude-code", model = catalog.CLAUDE_MODEL;
-    if (source === "chatgpt") { cli = "codex"; model = ctx.databaseManager.getSetting("agent_codex_model", catalog.CODEX_DEFAULT_MODEL); }
-    else if (source === "ollama") { cli = "claude-code"; model = ctx.databaseManager.getSetting("agent_ollama_model", catalog.DEFAULT_MODEL); }
-    return ctx.agentManager.runTask({ prompt: text, model, cwd: resolveCwd(), cli });
+    let cli, model;
+    if (source === "anthropic") { cli = "claude-code"; model = catalog.CLAUDE_MODEL; }
+    else if (source === "chatgpt") { cli = "codex"; model = ctx.databaseManager.getSetting("agent_codex_model", catalog.CODEX_DEFAULT_MODEL); }
+    else { cli = ctx.databaseManager.getSetting("agent_cli", "claude-code"); model = ctx.databaseManager.getSetting("agent_ollama_model", catalog.DEFAULT_MODEL); } // ollama
+    return ctx.agentManager.runTask({ prompt: text, model, cwd: resolveCwd(), cli, source });
   });
   ipcMain.handle("agent-stop-task", () => ctx.agentManager.stop());
   ipcMain.handle("agent-cancel-task", (e, id) => ctx.agentManager.cancel(id));

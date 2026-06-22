@@ -12,15 +12,17 @@ const CLAUDE_FLAGS = (systemPrompt, prompt) => [
   prompt,
 ];
 
-function buildAgentSpawn({ prompt, model, cwd, systemPrompt, cli = "claude-code" }) {
+function buildAgentSpawn({ prompt, model, cwd, systemPrompt, cli = "claude-code", source }) {
   if (cli === "codex") {
     // Codex 無 --append-system-prompt → 系統提示前綴進 prompt。
     // --dangerously-bypass-approvals-and-sandbox = Claude 的 --dangerously-skip-permissions 對等。
+    // source="ollama" → 用 Codex 的本地 OSS 供應商(ollama);否則走 ChatGPT 帳號預設。
+    const oss = source === "ollama" ? ["--oss", "--local-provider", "ollama"] : [];
     return {
       program: "codex",
       args: [
         "exec", "--json", "--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox",
-        "-m", model, "-C", cwd, `${systemPrompt}\n\n${prompt}`,
+        ...oss, "-m", model, "-C", cwd, `${systemPrompt}\n\n${prompt}`,
       ],
       cwd,
       env: {},

@@ -29,10 +29,10 @@ class AgentManager {
   isBusy() { return !!this.current && this.current.status === "running"; }
 
   // 不再拒絕:忙碌則排隊(status "queued"),否則直接起。一次只跑一個。
-  runTask({ prompt, model, cwd, cli }) {
+  runTask({ prompt, model, cwd, cli, source }) {
     if (!prompt || !prompt.trim()) return { success: false, error: "空白指令" };
     const id = this.nextId++;
-    const item = { id, prompt, model, cwd, cli: cli || "claude-code" };
+    const item = { id, prompt, model, cwd, cli: cli || "claude-code", source };
     if (this.isBusy()) {
       this.queue.push(item);
       this._emit({ id, status: "queued", prompt, text: "" });
@@ -43,8 +43,8 @@ class AgentManager {
   }
 
   _start(item) {
-    const { id, prompt, model, cwd, cli } = item;
-    const spec = buildAgentSpawn({ prompt, model, cwd, systemPrompt: AGENT_SYSTEM_PROMPT, cli });
+    const { id, prompt, model, cwd, cli, source } = item;
+    const spec = buildAgentSpawn({ prompt, model, cwd, systemPrompt: AGENT_SYSTEM_PROMPT, cli, source });
     if (spec.program === "claude") spec.program = claudeProgram();
 
     let child;

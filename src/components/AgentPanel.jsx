@@ -3,7 +3,7 @@ import { Bot, Check, X, RefreshCw, Square, Clock } from "lucide-react";
 
 export default function AgentPanel() {
   const [backends, setBackends] = useState(null);
-  const [cfg, setCfg] = useState({ source: "anthropic", codexModel: "gpt-5-codex", ollamaModel: "minimax-m2.5:cloud", workMode: "general", enabled: false, projectDir: "" });
+  const [cfg, setCfg] = useState({ cli: "claude-code", source: "anthropic", codexModel: "gpt-5-codex", ollamaModel: "minimax-m2.5:cloud", workMode: "general", enabled: false, projectDir: "" });
   const [tasks, setTasks] = useState([]); // {id, status, prompt, text}
   const [models, setModels] = useState([]); // [{name, tier, label?}]
   const [showAll, setShowAll] = useState(false);
@@ -13,7 +13,6 @@ export default function AgentPanel() {
   const refresh = () => api.agentDetectBackends?.().then(setBackends).catch(() => {});
   const loadModels = (opts) => api.agentListModels?.(opts).then((r) => { if (r) setModels(r.models || []); }).catch(() => {});
   const checkAvailability = () => { setChecking(true); Promise.resolve(loadModels({ source: "ollama", showAll, live: true })).finally(() => setChecking(false)); };
-  // 登入/登出/切換/安裝後,稍候重新偵測(登出即時;登入需在終端/瀏覽器完成)。
   const act = (fn) => { try { fn && fn(); } catch (e) {} setTimeout(refresh, 1500); };
 
   useEffect(() => {
@@ -29,6 +28,16 @@ export default function AgentPanel() {
     }));
   }, []);
   const set = (patch) => { setCfg((c) => ({ ...c, ...patch })); api.agentSetConfig?.(patch); };
+
+  // 選 CLI:claude code → 來源可選 anthropic/ollama;codex → chatgpt/ollama。換 CLI 時若來源失效則改預設。
+  const validSources = (cli) => (cli === "codex" ? ["chatgpt", "ollama"] : ["anthropic", "ollama"]);
+  const onCli = (cli) => {
+    const valid = validSources(cli);
+    const source = valid.includes(cfg.source) ? cfg.source : valid[0];
+    set({ cli, source });
+    setShowAll(false);
+    loadModels({ source });
+  };
   const onSource = (source) => { set({ source }); setShowAll(false); loadModels({ source }); };
 
   const Btn = ({ onClick, ghost, children }) => (
@@ -42,14 +51,25 @@ export default function AgentPanel() {
       <div className="space-y-2">{children}</div>
     </div>
   );
-  const InstallRow = ({ ok, label, onInstall }) => (
-    <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-      <span className="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200">
-        {ok ? <Check className="w-4 h-4 text-green-500" /> : <X className="w-4 h-4 text-red-500" />}{label}
-      </span>
-      {!ok && <Btn onClick={() => act(onInstall)}>安裝</Btn>}
-    </div>
-  );
+  const Dot = ({ on }) => <span className={"w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 " + (on ? "border-sky-500 bg-sky-500" : "border-gray-400 dark:border-gray-500")} />;
+
+  // CLI 工具列:claude code / codex 可選(radio);ollama 僅安裝狀態。
+  const CliRow = ({ k, label, installed, onInstall, selectable }) => {
+    const selected = selectable && cfg.cli === k;
+    return (
+      <div onClick={selectable ? () => onCli(k) : undefined}
+        className={"flex items-center justify-between p-3 rounded-lg border " + (selectable ? "cursor-pointer " : "") +
+          (selected ? "border-sky-500 bg-sky-50 dark:bg-sky-900/20" : "border-transparent bg-gray-50 dark:bg-gray-700/50")}>
+        <span className="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200">
+          {selectable && <Dot on={selected} />}
+          {installed ? <Check className="w-4 h-4 text-green-500" /> : <X className="w-4 h-4 text-red-500" />}
+          {label}
+        </span>
+        {!installed && <Btn onClick={(e) => { e.stopPropagation && e.stopPropagation(); act(onInstall); }}>安裝</Btn>}
+      </div>
+    );
+  };
+  // 模型來源列:可選(radio)+ 登入狀態 + 登入/切換/登出。
   const SourceRow = ({ k, label, loggedIn, onLogin, onLogout, onSwitch }) => {
     const selected = cfg.source === k;
     return (
@@ -57,12 +77,11 @@ export default function AgentPanel() {
         className={"flex items-center justify-between p-3 rounded-lg cursor-pointer border " +
           (selected ? "border-sky-500 bg-sky-50 dark:bg-sky-900/20" : "border-transparent bg-gray-50 dark:bg-gray-700/50")}>
         <span className="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200">
-          <span className={"w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 " + (selected ? "border-sky-500 bg-sky-500" : "border-gray-400 dark:border-gray-500")} />
+          <Dot on={selected} />
           {label}
           {loggedIn ? <Check className="w-4 h-4 text-green-500" /> : <X className="w-4 h-4 text-red-500" />}
         </span>
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          {/* 三來源都固定提供帳號管理(偵測只決定上面的 ✓/✗,不隱藏按鈕) */}
           <Btn ghost onClick={() => act(loggedIn ? onSwitch : onLogin)}>{loggedIn ? "切換帳號" : "登入"}</Btn>
           <Btn ghost onClick={() => act(onLogout)}>登出</Btn>
         </div>
@@ -70,11 +89,17 @@ export default function AgentPanel() {
     );
   };
 
+  const SOURCE_META = {
+    anthropic: { label: "Anthropic", loggedIn: !!backends?.anthropic, onLogin: api.agentLoginAnthropic, onLogout: api.agentLogoutAnthropic, onSwitch: api.agentSwitchAnthropic },
+    chatgpt: { label: "ChatGPT", loggedIn: !!backends?.chatgpt, onLogin: api.agentLoginCodex, onLogout: api.agentLogoutCodex, onSwitch: api.agentSwitchCodex },
+    ollama: { label: "Ollama", loggedIn: !!backends?.ollamaSignedIn, onLogin: api.agentLoginOllama, onLogout: api.agentLogoutOllama, onSwitch: api.agentSwitchOllama },
+  };
+
   const isOllama = cfg.source === "ollama";
   const isAnthropic = cfg.source === "anthropic";
   const modelValue = isAnthropic ? "claude" : isOllama ? cfg.ollamaModel : cfg.codexModel;
   const setModel = (v) => { if (isOllama) set({ ollamaModel: v }); else if (!isAnthropic) set({ codexModel: v }); };
-  const hasCurrent = models.some((m) => m.name === modelValue); // 防止過濾後 select 值無對應選項(顯示空白)
+  const hasCurrent = models.some((m) => m.name === modelValue);
   const labelFor = (m) => m.label || (isOllama ? m.name + (m.tier === "subscription" ? " — 需訂閱" : m.tier === "unknown" ? " — 未知" : " — 免費") : m.name);
 
   const running = tasks.filter((t) => t.status === "running");
@@ -89,21 +114,19 @@ export default function AgentPanel() {
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">代理 Agent</h3>
         <button onClick={refresh} title="重新偵測" className="ml-auto p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><RefreshCw className="w-4 h-4" /></button>
       </div>
-      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">把辨識出來的語音,交給所選「模型來源」在工作目錄執行任務。開啟「Agent 模式」後,按右 Alt 講的話會交給 agent 執行(而非貼到游標)。</p>
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">把辨識出來的語音,交給所選「CLI + 模型來源」在工作目錄執行任務。開啟「Agent 模式」後,按右 Alt 講的話會交給 agent 執行(而非貼到游標)。</p>
 
-      <Section title="CLI 工具">
-        <InstallRow ok={!!backends?.claudeCode} label="Claude Code 已安裝" onInstall={api.agentInstallClaude} />
-        <InstallRow ok={!!backends?.codex} label="Codex 已安裝" onInstall={api.agentInstallCodex} />
-        <InstallRow ok={!!backends?.ollama} label="Ollama 已安裝" onInstall={api.agentInstallOllama} />
+      <Section title="CLI 工具(選擇用哪個跑 agent;Ollama 僅需安裝)">
+        <CliRow k="claude-code" label="Claude Code 已安裝" installed={!!backends?.claudeCode} onInstall={api.agentInstallClaude} selectable />
+        <CliRow k="codex" label="Codex 已安裝" installed={!!backends?.codex} onInstall={api.agentInstallCodex} selectable />
+        <CliRow k="ollama" label="Ollama 已安裝" installed={!!backends?.ollama} onInstall={api.agentInstallOllama} selectable={false} />
       </Section>
 
-      <Section title="模型來源(點選使用,並可登入 / 登出 / 切換)">
-        <SourceRow k="anthropic" label="Anthropic" loggedIn={!!backends?.anthropic}
-          onLogin={api.agentLoginAnthropic} onLogout={api.agentLogoutAnthropic} onSwitch={api.agentSwitchAnthropic} />
-        <SourceRow k="chatgpt" label="ChatGPT" loggedIn={!!backends?.chatgpt}
-          onLogin={api.agentLoginCodex} onLogout={api.agentLogoutCodex} onSwitch={api.agentSwitchCodex} />
-        <SourceRow k="ollama" label="Ollama" loggedIn={!!backends?.ollamaSignedIn}
-          onLogin={api.agentLoginOllama} onLogout={api.agentLogoutOllama} onSwitch={api.agentSwitchOllama} />
+      <Section title={`模型來源(${cfg.cli === "codex" ? "Codex" : "Claude Code"} 可用;點選使用 + 登入/切換/登出)`}>
+        {validSources(cfg.cli).map((k) => {
+          const m = SOURCE_META[k];
+          return <SourceRow key={k} k={k} label={m.label} loggedIn={m.loggedIn} onLogin={m.onLogin} onLogout={m.onLogout} onSwitch={m.onSwitch} />;
+        })}
       </Section>
 
       <div className="mb-5">
