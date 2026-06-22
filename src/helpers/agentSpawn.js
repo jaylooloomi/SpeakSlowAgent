@@ -27,11 +27,14 @@ function buildAgentSpawn({ prompt, model, cwd, systemPrompt, cli = "claude-code"
       env: {},
     };
   }
-  // claude-code + Ollama:透傳雲端模型(model = "gemma3:12b-cloud" 之類)
+  // claude-code + Ollama:`ollama launch claude --model <m> -- <claude 旗標>`。
+  // 重點:--model 是 `ollama launch` 的旗標(在 -- 之前);-- 後面才是傳給 claude 的旗標,
+  // 不可再寫一次 claude、也不可把 --model 放到 -- 後面(否則 ollama launch 拿不到 model,
+  // 內層 claude 進互動式選模型 → headless 直接失敗)。對齊 app-free-cowork/launcher.rs:103-116。
   if (source === "ollama") {
     return {
       program: "ollama",
-      args: ["launch", "claude", "--", "claude", "--model", model, ...CLAUDE_FLAGS(systemPrompt, prompt)],
+      args: ["launch", "claude", "--model", model, "--", ...CLAUDE_FLAGS(systemPrompt, prompt)],
       cwd,
       env: { CLAUDE_CODE_MAX_OUTPUT_TOKENS: "16384" },
     };

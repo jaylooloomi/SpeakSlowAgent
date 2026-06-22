@@ -18,7 +18,7 @@ test("claude-code + ollama source: via `ollama launch claude`, --model + output 
   const s = buildAgentSpawn({ prompt: "hi", model: "gemma3:12b-cloud", cwd: "C:\\g", systemPrompt: "SYS", cli: "claude-code", source: "ollama" });
   assert.equal(s.program, "ollama");
   assert.deepEqual(s.args, [
-    "launch", "claude", "--", "claude", "--model", "gemma3:12b-cloud",
+    "launch", "claude", "--model", "gemma3:12b-cloud", "--",
     "--append-system-prompt", "SYS", "--dangerously-skip-permissions",
     "-p", "--output-format", "stream-json", "--verbose", "hi",
   ]);
