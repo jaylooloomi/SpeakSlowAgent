@@ -316,7 +316,22 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // 性能监控
   getPerformanceStats: () => ipcRenderer.invoke("get-performance-stats"),
-  clearPerformanceStats: () => ipcRenderer.invoke("clear-performance-stats")
+  clearPerformanceStats: () => ipcRenderer.invoke("clear-performance-stats"),
+
+  // Agent 模式
+  agentDetectBackends: () => ipcRenderer.invoke("agent-detect-backends"),
+  agentGetConfig: () => ipcRenderer.invoke("agent-get-config"),
+  agentSetConfig: (patch) => ipcRenderer.invoke("agent-set-config", patch),
+  agentRunTask: (text) => ipcRenderer.invoke("agent-run-task", text),
+  agentStopTask: () => ipcRenderer.invoke("agent-stop-task"),
+  agentInstallClaude: () => ipcRenderer.invoke("agent-install-claude"),
+  agentInstallOllama: () => ipcRenderer.invoke("agent-install-ollama"),
+  agentLoginAnthropic: () => ipcRenderer.invoke("agent-login-anthropic"),
+  onAgentTaskUpdate: (cb) => {
+    const handler = (_e, p) => cb(p);
+    ipcRenderer.on("agent-task-update", handler);
+    return () => ipcRenderer.removeListener("agent-task-update", handler);
+  }
 });
 
 // 添加一些实用的常量
