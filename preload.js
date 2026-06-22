@@ -325,9 +325,16 @@ contextBridge.exposeInMainWorld("electronAPI", {
   agentSetConfig: (patch) => ipcRenderer.invoke("agent-set-config", patch),
   agentRunTask: (text) => ipcRenderer.invoke("agent-run-task", text),
   agentStopTask: () => ipcRenderer.invoke("agent-stop-task"),
+  agentCancelTask: (id) => ipcRenderer.invoke("agent-cancel-task", id),
   agentInstallClaude: () => ipcRenderer.invoke("agent-install-claude"),
   agentInstallOllama: () => ipcRenderer.invoke("agent-install-ollama"),
+  agentInstallCodex: () => ipcRenderer.invoke("agent-install-codex"),
   agentLoginAnthropic: () => ipcRenderer.invoke("agent-login-anthropic"),
+  agentLogoutAnthropic: () => ipcRenderer.invoke("agent-logout-anthropic"),
+  agentSwitchAnthropic: () => ipcRenderer.invoke("agent-switch-anthropic"),
+  agentLoginCodex: () => ipcRenderer.invoke("agent-login-codex"),
+  agentLogoutCodex: () => ipcRenderer.invoke("agent-logout-codex"),
+  agentSwitchCodex: () => ipcRenderer.invoke("agent-switch-codex"),
   onAgentTaskUpdate: (cb) => {
     const handler = (_e, p) => cb(p);
     ipcRenderer.on("agent-task-update", handler);
