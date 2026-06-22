@@ -160,8 +160,20 @@ export default function AgentPanel() {
         <input type="checkbox" checked={cfg.enabled} onChange={(e) => set({ enabled: e.target.checked })} className="w-4 h-4 accent-sky-500" />
       </label>
 
+      {/* 排隊中:編號 + 排隊中標籤 + 取消 */}
+      <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 flex items-center gap-1"><Clock className="w-3.5 h-3.5" />排隊中</h4>
+      {queued.length === 0 ? <p className="text-xs text-gray-400 mb-3">無</p> : queued.map((t, i) => (
+        <div key={t.id} className="flex items-center justify-between gap-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg mb-2">
+          <span className="text-sm truncate text-gray-800 dark:text-gray-200">{i + 1}. {t.prompt}</span>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="text-xs text-gray-400">排隊中</span>
+            <button onClick={() => api.agentCancelTask?.(t.id)} className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-red-600"><X className="w-3 h-3" />取消</button>
+          </div>
+        </div>
+      ))}
+
       {/* 執行中:進行中標籤 + 停止 + 即時串流(工具呼叫 🔧 + 文字) */}
-      <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 flex items-center gap-1"><Loader2 className={"w-3.5 h-3.5" + (running.length ? " animate-spin" : "")} />執行中</h4>
+      <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 mt-3 flex items-center gap-1"><Loader2 className={"w-3.5 h-3.5" + (running.length ? " animate-spin" : "")} />執行中</h4>
       {running.length === 0 ? <p className="text-xs text-gray-400 mb-3">無</p> : running.map((t) => (
         <div key={t.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg mb-2">
           <div className="flex items-center justify-between gap-2">
@@ -173,18 +185,6 @@ export default function AgentPanel() {
           </div>
           {t.tools?.map((tool, i) => <div key={i} className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate mt-1">🔧 {tool}</div>)}
           {t.text && <div className="text-xs text-gray-600 dark:text-gray-300 mt-1 whitespace-pre-wrap line-clamp-4">{t.text}</div>}
-        </div>
-      ))}
-
-      {/* 排隊中:編號 + 排隊中標籤 + 取消 */}
-      <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 mt-3 flex items-center gap-1"><Clock className="w-3.5 h-3.5" />排隊中</h4>
-      {queued.length === 0 ? <p className="text-xs text-gray-400 mb-3">無</p> : queued.map((t, i) => (
-        <div key={t.id} className="flex items-center justify-between gap-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg mb-2">
-          <span className="text-sm truncate text-gray-800 dark:text-gray-200">{i + 1}. {t.prompt}</span>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <span className="text-xs text-gray-400">排隊中</span>
-            <button onClick={() => api.agentCancelTask?.(t.id)} className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-red-600"><X className="w-3 h-3" />取消</button>
-          </div>
         </div>
       ))}
 
