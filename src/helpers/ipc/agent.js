@@ -1,13 +1,20 @@
 const { ipcMain } = require("electron");
-const { spawnSync, spawn } = require("child_process");
+const { spawnSync, spawn, execFile } = require("child_process");
+const { promisify } = require("util");
 const catalog = require("../agentCatalog.js");
 
-function probe(cmd, args) {
-  try { const r = spawnSync(cmd, args, { encoding: "utf8", windowsHide: true, timeout: 8000 }); return r.status === 0; }
+const pExecFile = promisify(execFile);
+// 非阻塞偵測。win32 用 shell:true 才能跑 .cmd/.bat shim(如 codex.cmd / npm.cmd)。
+async function probeAsync(cmd, args) {
+  try { await pExecFile(cmd, args, { windowsHide: true, timeout: 8000, shell: process.platform === "win32" }); return true; }
   catch { return false; }
 }
+// 即時、非互動執行(登出);忽略結果。同樣需要 shell 解 shim。
+function runSync(cmd, args) {
+  try { spawnSync(cmd, args, { windowsHide: true, timeout: 15000, shell: process.platform === "win32" }); } catch (e) {}
+}
 
-// Anthropic 登入的被動退路(claude 未裝時用):env / ~/.claude.json oauthAccount / 認證檔。
+// Anthropic 登入的被動退路(claude 未裝/查不到時):env / ~/.claude.json oauthAccount / 認證檔。
 function anthropicFileLogin() {
   try {
     if (process.env.ANTHROPIC_API_KEY) return true;
@@ -16,61 +23,61 @@ function anthropicFileLogin() {
     return fs.existsSync(path.join(os.homedir(), ".claude", ".credentials.json"));
   } catch { return false; }
 }
+// Ollama 登入偵測:本機 daemon 的 /api/me(POST)會回帳號/方案(free-cowork 同源)。
+async function ollamaMe() {
+  try {
+    const res = await fetch("http://127.0.0.1:11434/api/me", { method: "POST", signal: AbortSignal.timeout(3000) });
+    if (!res.ok) return false;
+    const j = await res.json();
+    return !!(j && (j.email || j.name));
+  } catch { return false; }
+}
 
-// 開一個可見的終端機視窗跑指令(登入/安裝需使用者互動或看進度)。
+// 開一個可見的終端機視窗跑指令(登入/安裝需互動或看進度)。cmd /k 內會做 PATHEXT 解析。
 function openTerminal(args) {
   try {
     if (process.platform === "win32") spawn("cmd", ["/c", "start", "", "cmd", "/k", ...args], { detached: true, windowsHide: false });
     else spawn("sh", ["-c", args.join(" ")], { detached: true });
   } catch (e) {}
 }
-// 即時、非互動執行(登出);忽略結果。
-function runSync(cmd, args) { try { spawnSync(cmd, args, { windowsHide: true, timeout: 15000 }); } catch (e) {} }
 
 module.exports = function register(ctx) {
-  // 五列後端狀態。codex 已裝才查 ChatGPT 登入(避開本機殘留 ~/.codex 的誤判)。
-  ipcMain.handle("agent-detect-backends", () => {
-    const claudeCode = probe("claude", ["--version"]);
-    const codex = probe("codex", ["--version"]);
-    return {
-      claudeCode,
-      ollama: probe("ollama", ["--version"]),
-      anthropic: (claudeCode && probe("claude", ["auth", "status"])) || anthropicFileLogin(),
-      codex,
-      chatgpt: codex && probe("codex", ["login", "status"]),
-    };
+  // 偵測:CLI 工具(claudeCode/codex/ollama 已安裝)+ 模型來源(anthropic/chatgpt/ollamaSignedIn 已登入)。
+  // 非同步 + 併發,避免 spawnSync 卡住主程序事件迴圈。
+  ipcMain.handle("agent-detect-backends", async () => {
+    const [claudeCode, codex, ollama] = await Promise.all([
+      probeAsync("claude", ["--version"]),
+      probeAsync("codex", ["--version"]),
+      probeAsync("ollama", ["--version"]),
+    ]);
+    const [authStatus, chatgpt, ollamaSignedIn] = await Promise.all([
+      claudeCode ? probeAsync("claude", ["auth", "status"]) : Promise.resolve(false),
+      codex ? probeAsync("codex", ["login", "status"]) : Promise.resolve(false),
+      ollama ? ollamaMe() : Promise.resolve(false),
+    ]);
+    return { claudeCode, codex, ollama, anthropic: authStatus || anthropicFileLogin(), chatgpt, ollamaSignedIn };
   });
 
-  // 模型清單。engine="codex" → 固定 ChatGPT 模型;否則 Claude/Ollama catalog(可 live 掃描)。
+  // 模型清單依「模型來源」:anthropic=單一 Claude;chatgpt=固定 Codex 模型;ollama=雲端 catalog。
   ipcMain.handle("agent-list-models", async (e, opts) => {
-    const { engine = "claude-code", showAll = false, live = false } = opts || {};
-    if (engine === "codex") {
-      return {
-        engine: "codex",
-        default: catalog.CODEX_DEFAULT_MODEL,
-        models: catalog.CODEX_MODELS.map((name) => ({ name, tier: "chatgpt" })),
-      };
+    const { source = "anthropic", showAll = false, live = false } = opts || {};
+    if (source === "anthropic") {
+      return { source, default: catalog.CLAUDE_MODEL, models: [{ name: catalog.CLAUDE_MODEL, label: "Claude(Anthropic 官方)", tier: "anthropic" }] };
     }
-    let available = null;
+    if (source === "chatgpt") {
+      return { source, default: catalog.CODEX_DEFAULT_MODEL, models: catalog.CODEX_MODELS.map((name) => ({ name, tier: "chatgpt" })) };
+    }
+    let available = null; // ollama:可 live 掃描雲端目錄
     if (live) {
-      try {
-        const res = await fetch(catalog.CATALOG_URL, { signal: AbortSignal.timeout(8000) });
-        available = catalog.parseCloudModels(await res.text());
-      } catch { available = null; }
+      try { const res = await fetch(catalog.CATALOG_URL, { signal: AbortSignal.timeout(8000) }); available = catalog.parseCloudModels(await res.text()); } catch { available = null; }
     }
-    return {
-      engine: "claude-code",
-      claudeModel: catalog.CLAUDE_MODEL,
-      default: catalog.DEFAULT_MODEL,
-      models: catalog.listModels({ showAll, available }),
-      live: !!available,
-    };
+    return { source, default: catalog.DEFAULT_MODEL, models: catalog.listModels({ showAll, available }), live: !!available };
   });
 
   ipcMain.handle("agent-get-config", () => ({
-    cli: ctx.databaseManager.getSetting("agent_cli", "claude-code"),
-    model: ctx.databaseManager.getSetting("agent_model", catalog.CLAUDE_MODEL),
+    source: ctx.databaseManager.getSetting("agent_source", "anthropic"),
     codexModel: ctx.databaseManager.getSetting("agent_codex_model", catalog.CODEX_DEFAULT_MODEL),
+    ollamaModel: ctx.databaseManager.getSetting("agent_ollama_model", catalog.DEFAULT_MODEL),
     workMode: ctx.databaseManager.getSetting("agent_work_mode", "general"),
     enabled: ctx.databaseManager.getSetting("agent_mode_enabled", false) === true,
     projectDir: ctx.databaseManager.getSetting("agent_project_dir", ""),
@@ -78,7 +85,7 @@ module.exports = function register(ctx) {
 
   ipcMain.handle("agent-set-config", (e, patch) => {
     const map = {
-      cli: "agent_cli", model: "agent_model", codexModel: "agent_codex_model",
+      source: "agent_source", codexModel: "agent_codex_model", ollamaModel: "agent_ollama_model",
       workMode: "agent_work_mode", enabled: "agent_mode_enabled", projectDir: "agent_project_dir",
     };
     for (const [k, v] of Object.entries(patch || {})) { if (map[k]) ctx.databaseManager.setSetting(map[k], v); }
@@ -94,22 +101,24 @@ module.exports = function register(ctx) {
     return dir;
   }
 
+  // 由「模型來源」衍生 cli + model。
   ipcMain.handle("agent-run-task", (e, text) => {
     if (!text || !text.trim()) return { success: false, error: "空白指令" };
-    const cli = ctx.databaseManager.getSetting("agent_cli", "claude-code");
-    const model = cli === "codex"
-      ? ctx.databaseManager.getSetting("agent_codex_model", catalog.CODEX_DEFAULT_MODEL)
-      : ctx.databaseManager.getSetting("agent_model", catalog.CLAUDE_MODEL);
+    const source = ctx.databaseManager.getSetting("agent_source", "anthropic");
+    let cli = "claude-code", model = catalog.CLAUDE_MODEL;
+    if (source === "chatgpt") { cli = "codex"; model = ctx.databaseManager.getSetting("agent_codex_model", catalog.CODEX_DEFAULT_MODEL); }
+    else if (source === "ollama") { cli = "claude-code"; model = ctx.databaseManager.getSetting("agent_ollama_model", catalog.DEFAULT_MODEL); }
     return ctx.agentManager.runTask({ prompt: text, model, cwd: resolveCwd(), cli });
   });
   ipcMain.handle("agent-stop-task", () => ctx.agentManager.stop());
   ipcMain.handle("agent-cancel-task", (e, id) => ctx.agentManager.cancel(id));
 
-  // 安裝 / 登入 / 登出 / 切換帳號 ----------------------------------------
+  // 安裝(CLI 工具)----------------------------------------------------------
   ipcMain.handle("agent-install-claude", () => { require("electron").shell.openExternal("https://docs.anthropic.com/en/docs/claude-code/setup"); return { success: true }; });
-  ipcMain.handle("agent-install-ollama", () => { require("electron").shell.openExternal("https://ollama.com/download"); return { success: true }; });
   ipcMain.handle("agent-install-codex", () => { openTerminal(["npm", "i", "-g", "@openai/codex"]); return { success: true }; });
+  ipcMain.handle("agent-install-ollama", () => { require("electron").shell.openExternal("https://ollama.com/download"); return { success: true }; });
 
+  // 登入 / 登出 / 切換(模型來源)-------------------------------------------
   ipcMain.handle("agent-login-anthropic", () => { openTerminal(["claude", "auth", "login"]); return { success: true }; });
   ipcMain.handle("agent-logout-anthropic", () => { runSync("claude", ["auth", "logout"]); return { success: true }; });
   ipcMain.handle("agent-switch-anthropic", () => { runSync("claude", ["auth", "logout"]); openTerminal(["claude", "auth", "login"]); return { success: true }; });
@@ -117,4 +126,8 @@ module.exports = function register(ctx) {
   ipcMain.handle("agent-login-codex", () => { openTerminal(["codex", "login"]); return { success: true }; });
   ipcMain.handle("agent-logout-codex", () => { runSync("codex", ["logout"]); return { success: true }; });
   ipcMain.handle("agent-switch-codex", () => { runSync("codex", ["logout"]); openTerminal(["codex", "login"]); return { success: true }; });
+
+  ipcMain.handle("agent-login-ollama", () => { openTerminal(["ollama", "signin"]); return { success: true }; });
+  ipcMain.handle("agent-logout-ollama", () => { runSync("ollama", ["signout"]); return { success: true }; });
+  ipcMain.handle("agent-switch-ollama", () => { runSync("ollama", ["signout"]); openTerminal(["ollama", "signin"]); return { success: true }; });
 };

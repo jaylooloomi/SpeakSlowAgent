@@ -335,6 +335,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   agentLoginCodex: () => ipcRenderer.invoke("agent-login-codex"),
   agentLogoutCodex: () => ipcRenderer.invoke("agent-logout-codex"),
   agentSwitchCodex: () => ipcRenderer.invoke("agent-switch-codex"),
+  agentLoginOllama: () => ipcRenderer.invoke("agent-login-ollama"),
+  agentLogoutOllama: () => ipcRenderer.invoke("agent-logout-ollama"),
+  agentSwitchOllama: () => ipcRenderer.invoke("agent-switch-ollama"),
   onAgentTaskUpdate: (cb) => {
     const handler = (_e, p) => cb(p);
     ipcRenderer.on("agent-task-update", handler);

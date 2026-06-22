@@ -39,13 +39,13 @@ test("cli defaults to claude-code when omitted (regression)", () => {
   assert.equal(s.program, "claude");
 });
 
-test("parseCodexJsonLine: agent_message item.completed → text", () => {
+test("parseCodexJsonLine: agent_message item.completed → message (full, not delta)", () => {
   const line = JSON.stringify({ type: "item.completed", item: { id: "item_1", type: "agent_message", text: "hi" } });
-  assert.deepEqual(parseCodexJsonLine(line), { kind: "text", text: "hi" });
+  assert.deepEqual(parseCodexJsonLine(line), { kind: "message", text: "hi" });
 });
-test("parseCodexJsonLine: item-level error is non-fatal → null", () => {
+test("parseCodexJsonLine: item-level error → itemError (non-fatal diagnostic)", () => {
   const line = JSON.stringify({ type: "item.completed", item: { id: "item_0", type: "error", message: "plugin warning" } });
-  assert.equal(parseCodexJsonLine(line), null);
+  assert.deepEqual(parseCodexJsonLine(line), { kind: "itemError", text: "plugin warning" });
 });
 test("parseCodexJsonLine: streamed delta variant → text", () => {
   assert.deepEqual(parseCodexJsonLine(JSON.stringify({ type: "item.delta", delta: { text: "par" } })), { kind: "text", text: "par" });

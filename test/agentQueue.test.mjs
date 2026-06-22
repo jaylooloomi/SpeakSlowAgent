@@ -86,3 +86,34 @@ test("codex task uses the codex parser (agent_message → text)", () => {
   children[0].emit("close", 0);
   assert.equal(last(events, a.id).status, "done");
 });
+
+test("codex: two agent_message in one turn are joined with a newline (not glued)", () => {
+  const { mgr, children, events } = makeHarness();
+  const a = mgr.runTask({ prompt: "做事", model: "gpt-5-codex", cwd: "C:\\w", cli: "codex" });
+  children[0].stdout.emit("data", JSON.stringify({ type: "item.completed", item: { type: "agent_message", text: "先處理檔案" } }) + "\n");
+  children[0].stdout.emit("data", JSON.stringify({ type: "item.completed", item: { type: "agent_message", text: "完成了" } }) + "\n");
+  children[0].emit("close", 0);
+  assert.equal(last(events, a.id).text, "先處理檔案\n完成了");
+});
+
+test("codex: non-zero exit with only an item-error surfaces the error message (not empty)", () => {
+  const { mgr, children, events } = makeHarness();
+  const a = mgr.runTask({ prompt: "做事", model: "gpt-5-codex", cwd: "C:\\w", cli: "codex" });
+  children[0].stdout.emit("data", JSON.stringify({ type: "item.completed", item: { type: "error", message: "auth failed" } }) + "\n");
+  children[0].emit("close", 1);
+  const e = last(events, a.id);
+  assert.equal(e.status, "error");
+  assert.equal(e.text, "auth failed");
+});
+
+test("stale stdout from a killed/replaced child cannot resurrect a stopped task", () => {
+  const { mgr, children, events } = makeHarness();
+  const a = mgr.runTask({ prompt: "A", model: "claude", cwd: "C:\\w" });
+  const b = mgr.runTask({ prompt: "B", model: "claude", cwd: "C:\\w" });
+  mgr.stop(); // 殺 A、起 B
+  // 被殺的 A 緩衝區 stdout 晚一拍才沖出來:不可把 A 變回 running、也不可動到 B
+  children[0].stdout.emit("data", JSON.stringify({ type: "assistant", message: { content: [{ type: "text", text: "殘留" }] } }) + "\n");
+  assert.equal(last(events, a.id).status, "stopped");
+  assert.equal(last(events, b.id).status, "running");
+  assert.equal(mgr.isBusy(), true);
+});

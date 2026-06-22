@@ -54,7 +54,8 @@ function parseStreamJsonLine(line) {
 }
 
 // 解析 codex exec --json 的一行 JSONL(實測 codex-cli 0.141.0)。
-// 回傳 {kind:'text'|'result', text, isError?} 或 null(略過)。
+// 回傳 {kind:'text'|'message'|'itemError'|'result', text, isError?} 或 null(略過)。
+//  text=增量;message=整則(本版用);itemError=項目級錯誤(非致命診斷);result=終點。
 function parseCodexJsonLine(line) {
   let obj;
   try { obj = JSON.parse(line); } catch { return null; }
@@ -65,9 +66,11 @@ function parseCodexJsonLine(line) {
     const it = obj.item;
     if (it.type === "agent_message") {
       const text = typeof it.text === "string" ? it.text : (typeof it.message === "string" ? it.message : "");
-      return text ? { kind: "text", text } : null;
+      return text ? { kind: "message", text } : null; // 整則訊息(非增量)→ manager 以分隔線串接
     }
-    if (it.type === "error") return null; // 項目級錯誤(如外掛警告)非致命,略過
+    if (it.type === "error") { // 項目級錯誤(如外掛警告)非致命:留著當非零退出時的診斷訊息
+      return { kind: "itemError", text: typeof it.message === "string" ? it.message : "" };
+    }
     return null;
   }
   // 增量串流版本相容(本版直接給全文,但其他版本可能是 delta)
@@ -77,7 +80,7 @@ function parseCodexJsonLine(line) {
     return text ? { kind: "text", text } : null;
   }
   if (type === "agent_message" && (obj.text || obj.message)) {
-    return { kind: "text", text: obj.text || obj.message };
+    return { kind: "message", text: obj.text || obj.message };
   }
   if (type === "turn.completed") return { kind: "result", text: "" }; // 終點(最終文字已由 agent_message 累積)
   if (type === "error") return { kind: "result", text: typeof obj.message === "string" ? obj.message : "", isError: true };

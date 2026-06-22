@@ -62,7 +62,9 @@ class AgentManager {
     const parse = cli === "codex" ? parseCodexJsonLine : parseStreamJsonLine;
     let buf = "";
     let lastText = "";
+    let lastItemError = "";
     child.stdout.on("data", (chunk) => {
+      if (!this.current || this.current.child !== child) return; // 過時 child(被 stop/取代)不可再發事件
       buf += chunk.toString();
       let idx;
       while ((idx = buf.indexOf("\n")) >= 0) {
@@ -70,7 +72,9 @@ class AgentManager {
         const ev = parse(line.trim());
         if (!ev) continue;
         if (ev.kind === "text") { lastText += ev.text; this._emit({ id, status: "running", prompt, text: lastText }); }
-        if (ev.kind === "result") lastText = ev.text || lastText;
+        else if (ev.kind === "message") { lastText += (lastText ? "\n" : "") + ev.text; this._emit({ id, status: "running", prompt, text: lastText }); }
+        else if (ev.kind === "itemError") { lastItemError = ev.text || lastItemError; } // 非致命,僅留診斷
+        else if (ev.kind === "result") lastText = ev.text || lastText;
       }
     });
     child.stderr.on("data", (d) => this.logger.info && this.logger.info("[agent stderr] " + d.toString().slice(0, 200)));
@@ -84,7 +88,9 @@ class AgentManager {
     child.on("close", (code) => {
       if (!this.current || this.current.child !== child) return;
       this.current = null;
-      this._emit({ id, status: code === 0 ? "done" : "error", prompt, text: lastText });
+      // 非零退出且沒有任何輸出時,退而用項目級錯誤訊息當診斷(否則面板只看到 ❌ 沒原因)。
+      const text = code === 0 ? lastText : (lastText || lastItemError || "");
+      this._emit({ id, status: code === 0 ? "done" : "error", prompt, text });
       this._next();
     });
   }
