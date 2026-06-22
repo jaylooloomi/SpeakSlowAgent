@@ -62,7 +62,7 @@ module.exports = function register(ctx) {
   ipcMain.handle("agent-list-models", async (e, opts) => {
     const { source = "anthropic", showAll = false, live = false } = opts || {};
     if (source === "anthropic") {
-      return { source, default: catalog.CLAUDE_MODEL, models: [{ name: catalog.CLAUDE_MODEL, label: "Claude(Anthropic 官方)", tier: "anthropic" }] };
+      return { source, default: catalog.CLAUDE_DEFAULT_MODEL, models: catalog.CLAUDE_MODELS.map((name) => ({ name, tier: "anthropic" })) };
     }
     if (source === "chatgpt") {
       return { source, default: catalog.CODEX_DEFAULT_MODEL, models: catalog.CODEX_MODELS.map((name) => ({ name, tier: "chatgpt" })) };
@@ -77,6 +77,7 @@ module.exports = function register(ctx) {
   ipcMain.handle("agent-get-config", () => ({
     cli: ctx.databaseManager.getSetting("agent_cli", "claude-code"),
     source: ctx.databaseManager.getSetting("agent_source", "anthropic"),
+    anthropicModel: ctx.databaseManager.getSetting("agent_anthropic_model", catalog.CLAUDE_DEFAULT_MODEL),
     codexModel: ctx.databaseManager.getSetting("agent_codex_model", catalog.CODEX_DEFAULT_MODEL),
     ollamaModel: ctx.databaseManager.getSetting("agent_ollama_model", catalog.DEFAULT_MODEL),
     workMode: ctx.databaseManager.getSetting("agent_work_mode", "general"),
@@ -86,7 +87,8 @@ module.exports = function register(ctx) {
 
   ipcMain.handle("agent-set-config", (e, patch) => {
     const map = {
-      cli: "agent_cli", source: "agent_source", codexModel: "agent_codex_model", ollamaModel: "agent_ollama_model",
+      cli: "agent_cli", source: "agent_source",
+      anthropicModel: "agent_anthropic_model", codexModel: "agent_codex_model", ollamaModel: "agent_ollama_model",
       workMode: "agent_work_mode", enabled: "agent_mode_enabled", projectDir: "agent_project_dir",
     };
     for (const [k, v] of Object.entries(patch || {})) { if (map[k]) ctx.databaseManager.setSetting(map[k], v); }
@@ -108,7 +110,7 @@ module.exports = function register(ctx) {
     if (!text || !text.trim()) return { success: false, error: "空白指令" };
     const source = ctx.databaseManager.getSetting("agent_source", "anthropic");
     let cli, model;
-    if (source === "anthropic") { cli = "claude-code"; model = catalog.CLAUDE_MODEL; }
+    if (source === "anthropic") { cli = "claude-code"; model = ctx.databaseManager.getSetting("agent_anthropic_model", catalog.CLAUDE_DEFAULT_MODEL); }
     else if (source === "chatgpt") { cli = "codex"; model = ctx.databaseManager.getSetting("agent_codex_model", catalog.CODEX_DEFAULT_MODEL); }
     else { cli = ctx.databaseManager.getSetting("agent_cli", "claude-code"); model = ctx.databaseManager.getSetting("agent_ollama_model", catalog.DEFAULT_MODEL); } // ollama
     return ctx.agentManager.runTask({ prompt: text, model, cwd: resolveCwd(), cli, source });

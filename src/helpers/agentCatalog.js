@@ -12,6 +12,10 @@ const CATALOG_URL = "https://ollama.com/api/tags";
 const CODEX_MODELS = ["gpt-5-codex", "gpt-5"];
 const CODEX_DEFAULT_MODEL = "gpt-5-codex";
 
+// Anthropic 來源(claude headless --model)的別名。claude -p 需要明確 --model,否則報互動式選模型錯誤。
+const CLAUDE_MODELS = ["sonnet", "opus", "haiku"];
+const CLAUDE_DEFAULT_MODEL = "sonnet";
+
 // 實測免費可連、且能跑 Claude Code 的雲端模型(皆帶 -cloud / :cloud 後綴)。
 const VERIFIED_FREE = [
   "qwen3-vl:235b-cloud", "qwen3-vl:235b-instruct-cloud", "qwen3-coder-next:cloud",
@@ -84,6 +88,7 @@ function listModels({ showAll = false, available = null } = {}) {
 module.exports = {
   CLAUDE_MODEL, DEFAULT_MODEL, CATALOG_URL,
   CODEX_MODELS, CODEX_DEFAULT_MODEL,
+  CLAUDE_MODELS, CLAUDE_DEFAULT_MODEL,
   VERIFIED_FREE, VERIFIED_SUBSCRIPTION, VERIFIED_INCOMPATIBLE,
   tierOf, toLocalName, parseCloudModels, listModels,
 };

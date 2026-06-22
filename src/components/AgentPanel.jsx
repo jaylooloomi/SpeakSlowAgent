@@ -3,7 +3,7 @@ import { Bot, Check, X, RefreshCw, Square, Clock } from "lucide-react";
 
 export default function AgentPanel() {
   const [backends, setBackends] = useState(null);
-  const [cfg, setCfg] = useState({ cli: "claude-code", source: "anthropic", codexModel: "gpt-5-codex", ollamaModel: "minimax-m2.5:cloud", workMode: "general", enabled: false, projectDir: "" });
+  const [cfg, setCfg] = useState({ cli: "claude-code", source: "anthropic", anthropicModel: "sonnet", codexModel: "gpt-5-codex", ollamaModel: "minimax-m2.5:cloud", workMode: "general", enabled: false, projectDir: "" });
   const [tasks, setTasks] = useState([]); // {id, status, prompt, text}
   const [models, setModels] = useState([]); // [{name, tier, label?}]
   const [showAll, setShowAll] = useState(false);
@@ -97,8 +97,8 @@ export default function AgentPanel() {
 
   const isOllama = cfg.source === "ollama";
   const isAnthropic = cfg.source === "anthropic";
-  const modelValue = isAnthropic ? "claude" : isOllama ? cfg.ollamaModel : cfg.codexModel;
-  const setModel = (v) => { if (isOllama) set({ ollamaModel: v }); else if (!isAnthropic) set({ codexModel: v }); };
+  const modelValue = isAnthropic ? cfg.anthropicModel : isOllama ? cfg.ollamaModel : cfg.codexModel;
+  const setModel = (v) => { if (isAnthropic) set({ anthropicModel: v }); else if (isOllama) set({ ollamaModel: v }); else set({ codexModel: v }); };
   const hasCurrent = models.some((m) => m.name === modelValue);
   const labelFor = (m) => m.label || (isOllama ? m.name + (m.tier === "subscription" ? " — 需訂閱" : m.tier === "unknown" ? " — 未知" : " — 免費") : m.name);
 
@@ -147,8 +147,8 @@ export default function AgentPanel() {
             </div>
           )}
         </div>
-        <select value={modelValue} onChange={(e) => setModel(e.target.value)} disabled={isAnthropic}
-          className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 disabled:opacity-70">
+        <select value={modelValue} onChange={(e) => setModel(e.target.value)}
+          className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
           {!hasCurrent && <option value={modelValue}>{modelValue}</option>}
           {models.map((m) => <option key={m.name} value={m.name}>{labelFor(m)}</option>)}
         </select>

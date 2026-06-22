@@ -2,10 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildAgentSpawn, parseStreamJsonLine, parseCodexJsonLine } from "../src/helpers/agentSpawn.js";
 
-test("claude: runs claude directly, no --model, not via ollama", () => {
-  const s = buildAgentSpawn({ prompt: "整理桌面", model: "claude", cwd: "C:\\w", systemPrompt: "SYS" });
+test("anthropic source: claude direct WITH --model (headless requires it)", () => {
+  const s = buildAgentSpawn({ prompt: "整理桌面", model: "sonnet", cwd: "C:\\w", systemPrompt: "SYS", cli: "claude-code", source: "anthropic" });
   assert.equal(s.program, "claude");
   assert.deepEqual(s.args, [
+    "--model", "sonnet",
     "--append-system-prompt", "SYS", "--dangerously-skip-permissions",
     "-p", "--output-format", "stream-json", "--verbose", "整理桌面",
   ]);
@@ -13,8 +14,8 @@ test("claude: runs claude directly, no --model, not via ollama", () => {
   assert.equal(s.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS, undefined);
 });
 
-test("ollama: via `ollama launch claude`, with --model and output cap", () => {
-  const s = buildAgentSpawn({ prompt: "hi", model: "gemma3:12b-cloud", cwd: "C:\\g", systemPrompt: "SYS" });
+test("claude-code + ollama source: via `ollama launch claude`, --model + output cap", () => {
+  const s = buildAgentSpawn({ prompt: "hi", model: "gemma3:12b-cloud", cwd: "C:\\g", systemPrompt: "SYS", cli: "claude-code", source: "ollama" });
   assert.equal(s.program, "ollama");
   assert.deepEqual(s.args, [
     "launch", "claude", "--", "claude", "--model", "gemma3:12b-cloud",
@@ -49,9 +50,10 @@ test("codex + chatgpt source (no source / chatgpt): no --oss", () => {
   assert.ok(!s.args.includes("--oss"));
 });
 
-test("cli defaults to claude-code when omitted (regression)", () => {
-  const s = buildAgentSpawn({ prompt: "hi", model: "claude", cwd: "C:\\w", systemPrompt: "SYS" });
+test("defaults to claude-code anthropic when cli/source omitted", () => {
+  const s = buildAgentSpawn({ prompt: "hi", model: "sonnet", cwd: "C:\\w", systemPrompt: "SYS" });
   assert.equal(s.program, "claude");
+  assert.ok(s.args.includes("--model") && s.args.includes("sonnet"));
 });
 
 test("parseCodexJsonLine: agent_message item.completed → message (full, not delta)", () => {

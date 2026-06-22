@@ -3,8 +3,7 @@
 //   model "claude" → 直接跑 claude(走 Anthropic 帳號);其餘視為 ollama 模型(如
 //   "gemma3:12b-cloud")→ ollama launch claude -- claude --model <m>
 // cli="codex":走 OpenAI Codex CLI(走 ChatGPT 帳號)→ codex exec --json …(實測 0.141.0)。
-const { CLAUDE_MODEL } = require("./agentCatalog.js");
-
+// 路徑由 (cli, source) 決定;model 為各來源的模型名(anthropic=sonnet/opus、ollama=雲端名、codex=gpt-5-codex)。
 const CLAUDE_FLAGS = (systemPrompt, prompt) => [
   "--append-system-prompt", systemPrompt,
   "--dangerously-skip-permissions",
@@ -28,15 +27,22 @@ function buildAgentSpawn({ prompt, model, cwd, systemPrompt, cli = "claude-code"
       env: {},
     };
   }
-  if (model === CLAUDE_MODEL || model === "anthropic") { // "anthropic" = 舊設定相容
-    return { program: "claude", args: CLAUDE_FLAGS(systemPrompt, prompt), cwd, env: {} };
+  // claude-code + Ollama:透傳雲端模型(model = "gemma3:12b-cloud" 之類)
+  if (source === "ollama") {
+    return {
+      program: "ollama",
+      args: ["launch", "claude", "--", "claude", "--model", model, ...CLAUDE_FLAGS(systemPrompt, prompt)],
+      cwd,
+      env: { CLAUDE_CODE_MAX_OUTPUT_TOKENS: "16384" },
+    };
   }
-  // ollama 透傳路徑(model = ollama 模型名,如 "gemma3:12b-cloud")
+  // claude-code + Anthropic:claude headless 必須帶 --model(否則報
+  // "model selection requires an interactive terminal" 直接失敗)。model = sonnet/opus/haiku 別名。
   return {
-    program: "ollama",
-    args: ["launch", "claude", "--", "claude", "--model", model, ...CLAUDE_FLAGS(systemPrompt, prompt)],
+    program: "claude",
+    args: ["--model", model, ...CLAUDE_FLAGS(systemPrompt, prompt)],
     cwd,
-    env: { CLAUDE_CODE_MAX_OUTPUT_TOKENS: "16384" },
+    env: {},
   };
 }
 
