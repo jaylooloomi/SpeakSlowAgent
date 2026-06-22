@@ -10,6 +10,7 @@ import HotwordsManager from "./components/HotwordsManager";
 import DictionaryManager from "./components/DictionaryManager";
 import EmojiManager from "./components/EmojiManager";
 import HistoryView from "./components/HistoryView";
+import AgentPanel from "./components/AgentPanel";
 import { useTranslation, LanguageProvider } from "./i18n";
 
 // 設定面板左側分頁（依重要性排序）
@@ -969,18 +970,7 @@ const SettingsPage = () => {
             {activeTab === 'agent' && (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 mb-6">
             <div className="p-6">
-              <div className="mb-4">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 chinese-title">
-                  {t('settings.agentTab.title')}
-                </h2>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  {t('settings.agentTab.description')}
-                </p>
-              </div>
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Bot className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-3" />
-                <p className="text-sm text-gray-500 dark:text-gray-400">{t('settings.agentTab.comingSoon')}</p>
-              </div>
+              <AgentPanel />
             </div>
           </div>
 
