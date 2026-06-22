@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Bot, Check, X, RefreshCw, Square, Clock } from "lucide-react";
+import { Bot, Check, X, RefreshCw, Square, Clock, Loader2, CheckCircle2 } from "lucide-react";
 
 export default function AgentPanel() {
   const [backends, setBackends] = useState(null);
@@ -161,7 +161,7 @@ export default function AgentPanel() {
       </label>
 
       {/* 執行中:進行中標籤 + 停止 + 即時串流(工具呼叫 🔧 + 文字) */}
-      <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">執行中</h4>
+      <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 flex items-center gap-1"><Loader2 className={"w-3.5 h-3.5" + (running.length ? " animate-spin" : "")} />執行中</h4>
       {running.length === 0 ? <p className="text-xs text-gray-400 mb-3">無</p> : running.map((t) => (
         <div key={t.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg mb-2">
           <div className="flex items-center justify-between gap-2">
@@ -189,7 +189,7 @@ export default function AgentPanel() {
       ))}
 
       {/* 已完成:○成功/✗失敗 打勾移除 + 展開細節(工具+結果)+ 狀態標籤 */}
-      <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 mt-3">已完成</h4>
+      <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 mt-3 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" />已完成</h4>
       {done.length === 0 ? <p className="text-xs text-gray-400">無</p> : done.map((t) => {
         const ok = t.status === "done";
         const failed = t.status === "error";
