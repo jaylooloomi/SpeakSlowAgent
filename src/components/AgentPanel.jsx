@@ -62,9 +62,9 @@ export default function AgentPanel() {
           {loggedIn ? <Check className="w-4 h-4 text-green-500" /> : <X className="w-4 h-4 text-red-500" />}
         </span>
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          {loggedIn
-            ? <><Btn ghost onClick={() => act(onSwitch)}>切換</Btn><Btn ghost onClick={() => act(onLogout)}>登出</Btn></>
-            : <Btn onClick={() => act(onLogin)}>登入</Btn>}
+          {/* 三來源都固定提供帳號管理(偵測只決定上面的 ✓/✗,不隱藏按鈕) */}
+          <Btn ghost onClick={() => act(loggedIn ? onSwitch : onLogin)}>{loggedIn ? "切換帳號" : "登入"}</Btn>
+          <Btn ghost onClick={() => act(onLogout)}>登出</Btn>
         </div>
       </div>
     );

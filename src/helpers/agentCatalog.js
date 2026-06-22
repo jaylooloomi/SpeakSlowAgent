@@ -77,7 +77,8 @@ function listModels({ showAll = false, available = null } = {}) {
     out.push({ name, tier });
   }
   const rank = { free: 0, unknown: 1, subscription: 2 };
-  return out.sort((a, b) => (rank[a.tier] ?? 9) - (rank[b.tier] ?? 9)); // 穩定排序保留組內原序
+  // 免費在前、需訂閱在後;同組內依模型名稱字母排序(combobox 好找)。
+  return out.sort((a, b) => (rank[a.tier] ?? 9) - (rank[b.tier] ?? 9) || a.name.localeCompare(b.name));
 }
 
 module.exports = {

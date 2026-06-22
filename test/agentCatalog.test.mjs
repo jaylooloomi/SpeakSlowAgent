@@ -45,6 +45,18 @@ test("listModels default = free only; showAll adds subscription; incompatible al
   assert.ok(!all.some((m) => m.name === "rnj-1:8b-cloud"));    // still hidden
 });
 
+test("listModels sorts alphabetically by name within a tier", () => {
+  const free = listModels({ showAll: false });
+  const names = free.map((m) => m.name);
+  const sorted = [...names].sort((a, b) => a.localeCompare(b));
+  assert.deepEqual(names, sorted); // 全免費(同 tier)→ 應為純字母序
+  // 跨 tier:免費全部排在需訂閱之前
+  const all = listModels({ showAll: true });
+  const lastFree = all.map((m) => m.tier).lastIndexOf("free");
+  const firstSub = all.map((m) => m.tier).indexOf("subscription");
+  assert.ok(lastFree < firstSub);
+});
+
 test("CODEX_MODELS for the Codex engine + default is in the list", () => {
   assert.ok(Array.isArray(CODEX_MODELS) && CODEX_MODELS.includes("gpt-5-codex"));
   assert.equal(CODEX_DEFAULT_MODEL, "gpt-5-codex");
