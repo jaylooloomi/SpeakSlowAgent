@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildAgentSpawn, parseStreamJsonLine } from "../src/helpers/agentSpawn.js";
+import { buildAgentSpawn, parseStreamJsonLine, parseCodexJsonLine } from "../src/helpers/agentSpawn.js";
 
 test("claude: runs claude directly, no --model, not via ollama", () => {
   const s = buildAgentSpawn({ prompt: "整理桌面", model: "claude", cwd: "C:\\w", systemPrompt: "SYS" });
@@ -22,6 +22,44 @@ test("ollama: via `ollama launch claude`, with --model and output cap", () => {
     "-p", "--output-format", "stream-json", "--verbose", "hi",
   ]);
   assert.equal(s.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS, "16384");
+});
+
+test("codex: via `codex exec --json`, full bypass, model, cwd, sys-prompt prefixed", () => {
+  const s = buildAgentSpawn({ prompt: "整理桌面", model: "gpt-5-codex", cwd: "C:\\w", systemPrompt: "SYS", cli: "codex" });
+  assert.equal(s.program, "codex");
+  assert.deepEqual(s.args, [
+    "exec", "--json", "--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox",
+    "-m", "gpt-5-codex", "-C", "C:\\w", "SYS\n\n整理桌面",
+  ]);
+  assert.equal(s.cwd, "C:\\w");
+});
+
+test("cli defaults to claude-code when omitted (regression)", () => {
+  const s = buildAgentSpawn({ prompt: "hi", model: "claude", cwd: "C:\\w", systemPrompt: "SYS" });
+  assert.equal(s.program, "claude");
+});
+
+test("parseCodexJsonLine: agent_message item.completed → text", () => {
+  const line = JSON.stringify({ type: "item.completed", item: { id: "item_1", type: "agent_message", text: "hi" } });
+  assert.deepEqual(parseCodexJsonLine(line), { kind: "text", text: "hi" });
+});
+test("parseCodexJsonLine: item-level error is non-fatal → null", () => {
+  const line = JSON.stringify({ type: "item.completed", item: { id: "item_0", type: "error", message: "plugin warning" } });
+  assert.equal(parseCodexJsonLine(line), null);
+});
+test("parseCodexJsonLine: streamed delta variant → text", () => {
+  assert.deepEqual(parseCodexJsonLine(JSON.stringify({ type: "item.delta", delta: { text: "par" } })), { kind: "text", text: "par" });
+  assert.deepEqual(parseCodexJsonLine(JSON.stringify({ msg: { type: "agent_message_delta", delta: "tial" } })), { kind: "text", text: "tial" });
+});
+test("parseCodexJsonLine: turn.completed → result (terminal)", () => {
+  assert.deepEqual(parseCodexJsonLine(JSON.stringify({ type: "turn.completed", usage: {} })), { kind: "result", text: "" });
+});
+test("parseCodexJsonLine: top-level error → isError result", () => {
+  assert.deepEqual(parseCodexJsonLine(JSON.stringify({ type: "error", message: "boom" })), { kind: "result", text: "boom", isError: true });
+});
+test("parseCodexJsonLine: noise / thread.started → null", () => {
+  assert.equal(parseCodexJsonLine("not json"), null);
+  assert.equal(parseCodexJsonLine(JSON.stringify({ type: "thread.started", thread_id: "x" })), null);
 });
 
 test("parse assistant text event → extract text", () => {

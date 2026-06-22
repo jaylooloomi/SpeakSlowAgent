@@ -8,6 +8,10 @@ const CLAUDE_MODEL = "claude";
 const DEFAULT_MODEL = "minimax-m2.5:cloud";
 const CATALOG_URL = "https://ollama.com/api/tags";
 
+// Codex 引擎(走 ChatGPT 帳號)的模型 —— ChatGPT 方案的模型集是伺服器鎖定的,給固定小清單。
+const CODEX_MODELS = ["gpt-5-codex", "gpt-5"];
+const CODEX_DEFAULT_MODEL = "gpt-5-codex";
+
 // 實測免費可連、且能跑 Claude Code 的雲端模型(皆帶 -cloud / :cloud 後綴)。
 const VERIFIED_FREE = [
   "qwen3-vl:235b-cloud", "qwen3-vl:235b-instruct-cloud", "qwen3-coder-next:cloud",
@@ -78,6 +82,7 @@ function listModels({ showAll = false, available = null } = {}) {
 
 module.exports = {
   CLAUDE_MODEL, DEFAULT_MODEL, CATALOG_URL,
+  CODEX_MODELS, CODEX_DEFAULT_MODEL,
   VERIFIED_FREE, VERIFIED_SUBSCRIPTION, VERIFIED_INCOMPATIBLE,
   tierOf, toLocalName, parseCloudModels, listModels,
 };

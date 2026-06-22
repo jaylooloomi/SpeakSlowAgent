@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   CLAUDE_MODEL, DEFAULT_MODEL, tierOf, parseCloudModels, listModels,
+  CODEX_MODELS, CODEX_DEFAULT_MODEL,
 } from "../src/helpers/agentCatalog.js";
 
 test("CLAUDE_MODEL sentinel matches free-cowork ('claude')", () => {
@@ -42,6 +43,12 @@ test("listModels default = free only; showAll adds subscription; incompatible al
   const all = listModels({ showAll: true });
   assert.ok(all.some((m) => m.name === "glm-5:cloud" && m.tier === "subscription"));
   assert.ok(!all.some((m) => m.name === "rnj-1:8b-cloud"));    // still hidden
+});
+
+test("CODEX_MODELS for the Codex engine + default is in the list", () => {
+  assert.ok(Array.isArray(CODEX_MODELS) && CODEX_MODELS.includes("gpt-5-codex"));
+  assert.equal(CODEX_DEFAULT_MODEL, "gpt-5-codex");
+  assert.ok(CODEX_MODELS.includes(CODEX_DEFAULT_MODEL));
 });
 
 test("listModels with live `available` labels via tierOf and respects showAll", () => {
