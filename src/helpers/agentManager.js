@@ -1,7 +1,7 @@
 const { spawn } = require("child_process");
 const path = require("path");
 const os = require("os");
-const { buildAgentSpawn, parseStreamJsonLine } = require("./agentSpawn.js");
+const { buildAgentSpawn, parseStreamJsonLine, parseCodexJsonLine } = require("./agentSpawn.js");
 
 // 預設 agent 系統提示:要它「直接動手做」而非只解釋。
 const AGENT_SYSTEM_PROMPT =
@@ -15,28 +15,51 @@ function claudeProgram() {
 }
 
 class AgentManager {
-  constructor(logger, windowManager) {
+  // deps:{ spawn, emit } 供測試注入(預設用真 child_process.spawn 與廣播到所有視窗)。
+  constructor(logger, windowManager, deps = {}) {
     this.logger = logger || console;
     this.windowManager = windowManager;
+    this._spawn = deps.spawn || spawn;
+    this._emitFn = deps.emit || null;
     this.current = null; // { id, child, status, prompt }
+    this.queue = [];      // [{ id, prompt, model, cwd, cli }]
     this.nextId = 1;
   }
 
   isBusy() { return !!this.current && this.current.status === "running"; }
 
-  runTask({ prompt, model, cwd }) {
-    if (this.isBusy()) return { success: false, error: "已有任務執行中" };
+  // 不再拒絕:忙碌則排隊(status "queued"),否則直接起。一次只跑一個。
+  runTask({ prompt, model, cwd, cli }) {
+    if (!prompt || !prompt.trim()) return { success: false, error: "空白指令" };
     const id = this.nextId++;
-    const spec = buildAgentSpawn({ prompt, model, cwd, systemPrompt: AGENT_SYSTEM_PROMPT });
+    const item = { id, prompt, model, cwd, cli: cli || "claude-code" };
+    if (this.isBusy()) {
+      this.queue.push(item);
+      this._emit({ id, status: "queued", prompt, text: "" });
+    } else {
+      this._start(item);
+    }
+    return { success: true, id };
+  }
+
+  _start(item) {
+    const { id, prompt, model, cwd, cli } = item;
+    const spec = buildAgentSpawn({ prompt, model, cwd, systemPrompt: AGENT_SYSTEM_PROMPT, cli });
     if (spec.program === "claude") spec.program = claudeProgram();
-    const child = spawn(spec.program, spec.args, {
-      cwd,
-      env: { ...process.env, ...spec.env },
-      windowsHide: true,
-    });
+
+    let child;
+    try {
+      child = this._spawn(spec.program, spec.args, { cwd, env: { ...process.env, ...spec.env }, windowsHide: true });
+    } catch (e) {
+      this.current = null;
+      this._emit({ id, status: "error", prompt, text: "啟動失敗: " + e.message });
+      this._next();
+      return;
+    }
     this.current = { id, child, status: "running", prompt };
     this._emit({ id, status: "running", prompt, text: "" });
 
+    const parse = cli === "codex" ? parseCodexJsonLine : parseStreamJsonLine;
     let buf = "";
     let lastText = "";
     child.stdout.on("data", (chunk) => {
@@ -44,31 +67,58 @@ class AgentManager {
       let idx;
       while ((idx = buf.indexOf("\n")) >= 0) {
         const line = buf.slice(0, idx); buf = buf.slice(idx + 1);
-        const ev = parseStreamJsonLine(line.trim());
+        const ev = parse(line.trim());
         if (!ev) continue;
         if (ev.kind === "text") { lastText += ev.text; this._emit({ id, status: "running", prompt, text: lastText }); }
         if (ev.kind === "result") lastText = ev.text || lastText;
       }
     });
     child.stderr.on("data", (d) => this.logger.info && this.logger.info("[agent stderr] " + d.toString().slice(0, 200)));
-    child.on("error", (e) => { this.current = null; this._emit({ id, status: "error", prompt, text: "啟動失敗: " + e.message }); });
-    child.on("close", (code) => {
-      const status = code === 0 ? "done" : "error";
+    // 過時事件守衛:被 stop()/取代後,舊 child 的 close/error 不可動到 this.current 或再排空。
+    child.on("error", (e) => {
+      if (!this.current || this.current.child !== child) return;
       this.current = null;
-      this._emit({ id, status, prompt, text: lastText });
+      this._emit({ id, status: "error", prompt, text: "啟動失敗: " + e.message });
+      this._next();
     });
-    return { success: true, id };
+    child.on("close", (code) => {
+      if (!this.current || this.current.child !== child) return;
+      this.current = null;
+      this._emit({ id, status: code === 0 ? "done" : "error", prompt, text: lastText });
+      this._next();
+    });
+  }
+
+  _next() {
+    if (this.current || this.queue.length === 0) return;
+    this._start(this.queue.shift());
+  }
+
+  // 取消:排隊項 → 移除;當前項 → 等同 stop。
+  cancel(id) {
+    const i = this.queue.findIndex((t) => t.id === id);
+    if (i >= 0) {
+      const [item] = this.queue.splice(i, 1);
+      this._emit({ id, status: "cancelled", prompt: item.prompt, text: "已取消" });
+      return { success: true };
+    }
+    if (this.current && this.current.id === id) return this.stop();
+    return { success: false, error: "找不到任務" };
   }
 
   stop() {
     if (this.current && this.current.child) { try { this.current.child.kill(); } catch (e) {} }
-    if (this.current) { this._emit({ id: this.current.id, status: "stopped", prompt: this.current.prompt, text: "已停止" }); this.current = null; }
+    if (this.current) {
+      this._emit({ id: this.current.id, status: "stopped", prompt: this.current.prompt, text: "已停止" });
+      this.current = null;
+    }
+    this._next(); // 停掉當前後,接著跑佇列下一個
     return { success: true };
   }
 
   _emit(payload) {
-    // 廣播到所有視窗:主視窗(App.jsx 監聽通知)與設定視窗(AgentPanel 任務列表)
-    // 都要收到。windowManager 不一定有 settingsWindow 參照,故直接列舉所有視窗最穩。
+    if (this._emitFn) { this._emitFn(payload); return; } // 測試注入
+    // 廣播到所有視窗:主視窗(App.jsx 通知)與設定視窗(AgentPanel 任務列表)都要收到。
     try {
       const { BrowserWindow } = require("electron");
       for (const w of BrowserWindow.getAllWindows()) {
