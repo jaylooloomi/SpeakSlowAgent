@@ -8,6 +8,8 @@ export default function AgentPanel() {
   const [models, setModels] = useState([]); // [{name, tier, label?}]
   const [showAll, setShowAll] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [expandedId, setExpandedId] = useState(null); // 已完成:展開查看細節的 id
+  const [dismissed, setDismissed] = useState([]);      // 已完成:打勾後隱藏的 id
 
   const api = window.electronAPI || {};
   const refresh = () => api.agentDetectBackends?.().then(setBackends).catch(() => {});
@@ -104,8 +106,7 @@ export default function AgentPanel() {
 
   const running = tasks.filter((t) => t.status === "running");
   const queued = tasks.filter((t) => t.status === "queued");
-  const done = tasks.filter((t) => ["done", "error", "stopped", "cancelled"].includes(t.status));
-  const doneIcon = (s) => (s === "error" ? "❌" : s === "stopped" ? "⏹" : s === "cancelled" ? "🚫" : "✅");
+  const done = tasks.filter((t) => ["done", "error", "stopped", "cancelled"].includes(t.status) && !dismissed.includes(t.id));
 
   return (
     <div>
@@ -159,29 +160,66 @@ export default function AgentPanel() {
         <input type="checkbox" checked={cfg.enabled} onChange={(e) => set({ enabled: e.target.checked })} className="w-4 h-4 accent-sky-500" />
       </label>
 
+      {/* 執行中:進行中標籤 + 停止 + 即時串流(工具呼叫 🔧 + 文字) */}
       <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">執行中</h4>
       {running.length === 0 ? <p className="text-xs text-gray-400 mb-3">無</p> : running.map((t) => (
-        <div key={t.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg mb-2">
-          <span className="text-sm truncate text-gray-800 dark:text-gray-200">{t.prompt}</span>
-          <button onClick={() => api.agentStopTask?.()} className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:text-red-700"><Square className="w-3 h-3" />停止</button>
-        </div>
-      ))}
-
-      <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 mt-3 flex items-center gap-1"><Clock className="w-3.5 h-3.5" />排隊中</h4>
-      {queued.length === 0 ? <p className="text-xs text-gray-400 mb-3">無</p> : queued.map((t) => (
-        <div key={t.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg mb-2">
-          <span className="text-sm truncate text-gray-800 dark:text-gray-200">{t.prompt}</span>
-          <button onClick={() => api.agentCancelTask?.(t.id)} className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-red-600"><X className="w-3 h-3" />取消</button>
-        </div>
-      ))}
-
-      <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 mt-3">已完成</h4>
-      {done.length === 0 ? <p className="text-xs text-gray-400">無</p> : done.map((t) => (
         <div key={t.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg mb-2">
-          <div className="text-sm truncate text-gray-800 dark:text-gray-200">{doneIcon(t.status)} {t.prompt}</div>
-          {t.text && <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 whitespace-pre-wrap line-clamp-3">{t.text}</div>}
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm truncate text-gray-800 dark:text-gray-200">▶ {t.prompt}</span>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <span className="text-xs text-sky-600 dark:text-sky-400">進行中</span>
+              <button onClick={() => api.agentStopTask?.()} className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:text-red-700"><Square className="w-3 h-3" />停止</button>
+            </div>
+          </div>
+          {t.tools?.map((tool, i) => <div key={i} className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate mt-1">🔧 {tool}</div>)}
+          {t.text && <div className="text-xs text-gray-600 dark:text-gray-300 mt-1 whitespace-pre-wrap line-clamp-4">{t.text}</div>}
         </div>
       ))}
+
+      {/* 排隊中:編號 + 排隊中標籤 + 取消 */}
+      <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 mt-3 flex items-center gap-1"><Clock className="w-3.5 h-3.5" />排隊中</h4>
+      {queued.length === 0 ? <p className="text-xs text-gray-400 mb-3">無</p> : queued.map((t, i) => (
+        <div key={t.id} className="flex items-center justify-between gap-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg mb-2">
+          <span className="text-sm truncate text-gray-800 dark:text-gray-200">{i + 1}. {t.prompt}</span>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="text-xs text-gray-400">排隊中</span>
+            <button onClick={() => api.agentCancelTask?.(t.id)} className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-red-600"><X className="w-3 h-3" />取消</button>
+          </div>
+        </div>
+      ))}
+
+      {/* 已完成:○成功/✗失敗 打勾移除 + 展開細節(工具+結果)+ 狀態標籤 */}
+      <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 mt-3">已完成</h4>
+      {done.length === 0 ? <p className="text-xs text-gray-400">無</p> : done.map((t) => {
+        const ok = t.status === "done";
+        const failed = t.status === "error";
+        const hasDetail = (t.tools && t.tools.length) || !!t.text;
+        const expanded = expandedId === t.id;
+        return (
+          <div key={t.id} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg mb-2">
+            <div className="flex items-center gap-2 p-3">
+              <button onClick={() => setDismissed((d) => [...d, t.id])} title="標記完成 / 從清單移除"
+                className={"text-sm font-bold w-4 flex-shrink-0 " + (failed ? "text-red-500 hover:text-red-600" : "text-green-500 hover:text-green-600")}>
+                {failed ? "✗" : "○"}
+              </button>
+              {hasDetail ? (
+                <button onClick={() => setExpandedId(expanded ? null : t.id)} className="flex-1 min-w-0 flex items-center gap-1 text-left text-sm text-gray-800 dark:text-gray-200">
+                  <span className="text-gray-400 flex-shrink-0">{expanded ? "▾" : "▸"}</span><span className="truncate">{t.prompt}</span>
+                </button>
+              ) : <span className="flex-1 min-w-0 text-sm truncate text-gray-800 dark:text-gray-200">{t.prompt}</span>}
+              {failed && <span className="text-xs text-red-500 flex-shrink-0">失敗</span>}
+              {t.status === "stopped" && <span className="text-xs text-gray-400 flex-shrink-0">已停止</span>}
+              {t.status === "cancelled" && <span className="text-xs text-gray-400 flex-shrink-0">已取消</span>}
+            </div>
+            {expanded && hasDetail && (
+              <div className="px-3 pb-3 -mt-1">
+                {t.tools?.map((tool, i) => <div key={i} className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate">🔧 {tool}</div>)}
+                {t.text && <div className="text-xs text-gray-600 dark:text-gray-300 mt-1 whitespace-pre-wrap">{t.text}</div>}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

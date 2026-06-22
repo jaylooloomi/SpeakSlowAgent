@@ -52,8 +52,16 @@ function parseStreamJsonLine(line) {
   try { obj = JSON.parse(line); } catch { return null; }
   if (!obj || typeof obj !== "object") return null;
   if (obj.type === "assistant" && obj.message?.content) {
-    const text = obj.message.content.filter((c) => c.type === "text").map((c) => c.text).join("");
-    return text ? { kind: "text", text } : null;
+    const content = obj.message.content;
+    const text = content.filter((c) => c.type === "text").map((c) => c.text).join("");
+    if (text) return { kind: "text", text };
+    const tool = content.find((c) => c.type === "tool_use"); // 工具呼叫(Bash/Read…)→ 顯示 name: 指令
+    if (tool) {
+      const inp = tool.input || {};
+      const detail = inp.command || inp.file_path || inp.path || inp.pattern || "";
+      return { kind: "tool", text: detail ? `${tool.name}: ${detail}` : (tool.name || "tool") };
+    }
+    return null;
   }
   if (obj.type === "result") {
     return { kind: "result", text: typeof obj.result === "string" ? obj.result : "", isError: obj.is_error === true };
@@ -75,6 +83,9 @@ function parseCodexJsonLine(line) {
     if (it.type === "agent_message") {
       const text = typeof it.text === "string" ? it.text : (typeof it.message === "string" ? it.message : "");
       return text ? { kind: "message", text } : null; // 整則訊息(非增量)→ manager 以分隔線串接
+    }
+    if (it.type === "command_execution") { // 工具呼叫:顯示執行的指令
+      return { kind: "tool", text: typeof it.command === "string" ? it.command : "command" };
     }
     if (it.type === "error") { // 項目級錯誤(如外掛警告)非致命:留著當非零退出時的診斷訊息
       return { kind: "itemError", text: typeof it.message === "string" ? it.message : "" };

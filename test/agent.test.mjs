@@ -83,6 +83,15 @@ test("parse assistant text event → extract text", () => {
   const line = JSON.stringify({ type: "assistant", message: { content: [{ type: "text", text: "好的,我來整理。" }] } });
   assert.deepEqual(parseStreamJsonLine(line), { kind: "text", text: "好的,我來整理。" });
 });
+test("parse assistant tool_use → tool event (name: command)", () => {
+  const line = JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", name: "Bash", input: { command: "ls -la" } }] } });
+  assert.deepEqual(parseStreamJsonLine(line), { kind: "tool", text: "Bash: ls -la" });
+});
+test("parseCodexJsonLine: command_execution → tool event", () => {
+  const line = JSON.stringify({ type: "item.completed", item: { type: "command_execution", command: "Invoke-RestMethod -Uri http://x" } });
+  assert.deepEqual(parseCodexJsonLine(line), { kind: "tool", text: "Invoke-RestMethod -Uri http://x" });
+});
+
 test("parse result event → final text + isError", () => {
   const line = JSON.stringify({ type: "result", subtype: "success", result: "完成", is_error: false });
   assert.deepEqual(parseStreamJsonLine(line), { kind: "result", text: "完成", isError: false });
