@@ -38,6 +38,7 @@ const TrayManager = require("./src/helpers/tray");
 const HotkeyManager = require("./src/helpers/hotkeyManager");
 const IPCHandlers = require("./src/helpers/ipcHandlers");
 const { TypelessManager } = require("./src/helpers/typelessManager");
+const AgentManager = require("./src/helpers/agentManager");
 
 // 设置生产环境PATH
 function setupProductionPath() {
@@ -158,6 +159,7 @@ try {
 
 // 初始化 windowManager，傳入 databaseManager 以支援設定讀取
 const windowManager = new WindowManager(databaseManager);
+const agentManager = new AgentManager(logger, windowManager);
 const trayManager = new TrayManager();
 
 // IPC处理器将在 app ready 后初始化
@@ -175,6 +177,7 @@ async function startApp() {
       windowManager,
       hotkeyManager,
       typelessManager,
+      agentManager,
       logger,
     });
   }
@@ -307,5 +310,6 @@ module.exports = {
   trayManager,
   hotkeyManager,
   typelessManager,
+  agentManager,
   logger
 };

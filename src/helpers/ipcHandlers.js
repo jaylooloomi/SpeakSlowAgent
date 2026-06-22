@@ -9,6 +9,7 @@ class IPCHandlers {
     this.windowManager = managers.windowManager;
     this.hotkeyManager = managers.hotkeyManager;
     this.typelessManager = managers.typelessManager;
+    this.agentManager = managers.agentManager;
     this.logger = managers.logger; // 添加logger引用
     this.aiProcessor = new AITextProcessor(this.databaseManager, this.logger);
 
