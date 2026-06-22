@@ -119,6 +119,17 @@ module.exports = function register(ctx) {
   ipcMain.handle("agent-stop-task", () => ctx.agentManager.stop());
   ipcMain.handle("agent-cancel-task", (e, id) => ctx.agentManager.cancel(id));
 
+  // 選工作資料夾(專案模式):開原生資料夾對話框 → 存 agent_project_dir。
+  ipcMain.handle("agent-pick-project-dir", async () => {
+    try {
+      const { dialog } = require("electron");
+      const r = await dialog.showOpenDialog({ title: "選擇工作資料夾", properties: ["openDirectory"] });
+      if (r.canceled || !r.filePaths.length) return { success: false };
+      ctx.databaseManager.setSetting("agent_project_dir", r.filePaths[0]);
+      return { success: true, dir: r.filePaths[0] };
+    } catch (e) { return { success: false, error: e.message }; }
+  });
+
   // 安裝(CLI 工具)----------------------------------------------------------
   ipcMain.handle("agent-install-claude", () => { require("electron").shell.openExternal("https://docs.anthropic.com/en/docs/claude-code/setup"); return { success: true }; });
   ipcMain.handle("agent-install-codex", () => { openTerminal(["npm", "i", "-g", "@openai/codex"]); return { success: true }; });

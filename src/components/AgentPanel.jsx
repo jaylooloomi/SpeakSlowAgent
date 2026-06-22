@@ -44,6 +44,7 @@ export default function AgentPanel() {
     loadModels({ source });
   };
   const onSource = (source) => { set({ source }); setShowAll(false); loadModels({ source }); };
+  const pickDir = () => api.agentPickProjectDir?.().then((r) => { if (r && r.success) set({ projectDir: r.dir, workMode: "project" }); }).catch(() => {});
 
   const Btn = ({ onClick, ghost, children }) => (
     <button onClick={onClick} className={"px-3 py-1 text-xs rounded-lg " + (ghost
@@ -161,6 +162,25 @@ export default function AgentPanel() {
           {!hasCurrent && <option value={modelValue}>{modelValue}</option>}
           {models.map((m) => <option key={m.name} value={m.name}>{labelFor(m)}</option>)}
         </select>
+      </div>
+
+      {/* 工作目錄:一般(Downloads/SpeakSlowAgent)或專案資料夾 */}
+      <div className="mb-5">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2">{T("workdirSection")}</h4>
+        <div className="space-y-2">
+          <div onClick={() => set({ workMode: "general" })}
+            className={"flex items-center gap-2 p-3 rounded-lg cursor-pointer border " + (cfg.workMode !== "project" ? "border-sky-500 bg-sky-50 dark:bg-sky-900/20" : "border-transparent bg-gray-50 dark:bg-gray-700/50")}>
+            <Dot on={cfg.workMode !== "project"} /><span className="text-sm text-gray-800 dark:text-gray-200">{T("workdirGeneral")}</span>
+          </div>
+          <div onClick={() => set({ workMode: "project" })}
+            className={"flex items-center justify-between gap-2 p-3 rounded-lg cursor-pointer border " + (cfg.workMode === "project" ? "border-sky-500 bg-sky-50 dark:bg-sky-900/20" : "border-transparent bg-gray-50 dark:bg-gray-700/50")}>
+            <span className="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200 min-w-0">
+              <Dot on={cfg.workMode === "project"} />
+              <span className={"truncate " + (cfg.projectDir ? "font-mono text-xs" : "")}>{cfg.projectDir || T("workdirProject")}</span>
+            </span>
+            <button onClick={(e) => { e.stopPropagation(); pickDir(); }} className="px-3 py-1 text-xs rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex-shrink-0">{T("pickFolder")}</button>
+          </div>
+        </div>
       </div>
 
       <label className="flex items-center justify-between p-3 bg-sky-50 dark:bg-sky-900/20 rounded-lg mb-5 cursor-pointer">

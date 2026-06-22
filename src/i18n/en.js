@@ -158,7 +158,12 @@ export default {
       dismissTip: 'Mark done / remove from list',
       redetect: 'Re-detect',
       cliClaudeCode: 'Claude Code',
-      cliCodex: 'Codex'
+      cliCodex: 'Codex',
+      workdirSection: 'Working directory',
+      workdirGeneral: 'General (Downloads/SpeakSlowAgent)',
+      workdirProject: 'Project folder',
+      pickFolder: 'Choose…',
+      noFolder: '(no folder selected)'
     },
     emoji: {
       title: 'Voice symbols',

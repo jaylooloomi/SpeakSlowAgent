@@ -326,6 +326,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   agentRunTask: (text) => ipcRenderer.invoke("agent-run-task", text),
   agentStopTask: () => ipcRenderer.invoke("agent-stop-task"),
   agentCancelTask: (id) => ipcRenderer.invoke("agent-cancel-task", id),
+  agentPickProjectDir: () => ipcRenderer.invoke("agent-pick-project-dir"),
   agentInstallClaude: () => ipcRenderer.invoke("agent-install-claude"),
   agentInstallOllama: () => ipcRenderer.invoke("agent-install-ollama"),
   agentInstallCodex: () => ipcRenderer.invoke("agent-install-codex"),

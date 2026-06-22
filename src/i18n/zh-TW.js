@@ -158,7 +158,12 @@ export default {
       dismissTip: '標記完成 / 從清單移除',
       redetect: '重新偵測',
       cliClaudeCode: 'Claude Code',
-      cliCodex: 'Codex'
+      cliCodex: 'Codex',
+      workdirSection: '工作目錄',
+      workdirGeneral: '一般(下載/SpeakSlowAgent)',
+      workdirProject: '專案資料夾',
+      pickFolder: '選擇…',
+      noFolder: '(尚未選擇資料夾)'
     },
     emoji: {
       title: '語音符號',
