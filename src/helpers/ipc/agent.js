@@ -1,5 +1,6 @@
 const { ipcMain } = require("electron");
 const { spawnSync } = require("child_process");
+const catalog = require("../agentCatalog.js");
 
 function probe(cmd, args) {
   try { const r = spawnSync(cmd, args, { encoding: "utf8", windowsHide: true }); return r.status === 0; }
@@ -23,8 +24,27 @@ module.exports = function register(ctx) {
     anthropic: anthropicLoggedIn(),
   }));
 
+  // 模型清單(挑選器用)。live=true 時打 ollama.com/api/tags 實際掃描可用性,
+  // 失敗則回退靜態 catalog。incompatible 永遠隱藏;subscription 需 showAll 才出現。
+  ipcMain.handle("agent-list-models", async (e, opts) => {
+    const { showAll = false, live = false } = opts || {};
+    let available = null;
+    if (live) {
+      try {
+        const res = await fetch(catalog.CATALOG_URL, { signal: AbortSignal.timeout(8000) });
+        available = catalog.parseCloudModels(await res.text());
+      } catch { available = null; }
+    }
+    return {
+      claudeModel: catalog.CLAUDE_MODEL,
+      default: catalog.DEFAULT_MODEL,
+      models: catalog.listModels({ showAll, available }),
+      live: !!available,
+    };
+  });
+
   ipcMain.handle("agent-get-config", () => ({
-    model: ctx.databaseManager.getSetting("agent_model", "anthropic"),
+    model: ctx.databaseManager.getSetting("agent_model", catalog.CLAUDE_MODEL),
     workMode: ctx.databaseManager.getSetting("agent_work_mode", "general"),
     enabled: ctx.databaseManager.getSetting("agent_mode_enabled", false) === true,
     projectDir: ctx.databaseManager.getSetting("agent_project_dir", ""),
@@ -47,7 +67,7 @@ module.exports = function register(ctx) {
 
   ipcMain.handle("agent-run-task", (e, text) => {
     if (!text || !text.trim()) return { success: false, error: "空白指令" };
-    const model = ctx.databaseManager.getSetting("agent_model", "anthropic");
+    const model = ctx.databaseManager.getSetting("agent_model", catalog.CLAUDE_MODEL);
     return ctx.agentManager.runTask({ prompt: text, model, cwd: resolveCwd() });
   });
   ipcMain.handle("agent-stop-task", () => ctx.agentManager.stop());

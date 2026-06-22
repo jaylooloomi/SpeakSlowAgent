@@ -3,11 +3,23 @@ import { Bot, Check, X, RefreshCw, Square } from "lucide-react";
 
 export default function AgentPanel() {
   const [backends, setBackends] = useState(null);
-  const [cfg, setCfg] = useState({ model: "anthropic", workMode: "general", enabled: false, projectDir: "" });
+  const [cfg, setCfg] = useState({ model: "claude", workMode: "general", enabled: false, projectDir: "" });
   const [tasks, setTasks] = useState([]); // {id, status, prompt, text}
+  const [models, setModels] = useState([]); // [{name, tier}]
+  const [claudeModel, setClaudeModel] = useState("claude");
+  const [showAll, setShowAll] = useState(false);
+  const [checking, setChecking] = useState(false);
 
   const refresh = () => window.electronAPI?.agentDetectBackends?.().then(setBackends).catch(() => {});
-  useEffect(() => { refresh(); window.electronAPI?.agentGetConfig?.().then(setCfg).catch(() => {}); }, []);
+  const loadModels = (opts) => window.electronAPI?.agentListModels?.(opts).then((r) => {
+    if (r) { setModels(r.models || []); setClaudeModel(r.claudeModel || "claude"); }
+  }).catch(() => {});
+  const checkAvailability = () => { setChecking(true); Promise.resolve(loadModels({ showAll, live: true })).finally(() => setChecking(false)); };
+  useEffect(() => {
+    refresh();
+    window.electronAPI?.agentGetConfig?.().then(setCfg).catch(() => {});
+    loadModels({ showAll: false });
+  }, []);
   useEffect(() => {
     if (!window.electronAPI?.onAgentTaskUpdate) return;
     return window.electronAPI.onAgentTaskUpdate((p) => setTasks((prev) => {
@@ -45,12 +57,30 @@ export default function AgentPanel() {
         <Row ok={!!backends?.anthropic} label="Anthropic 已登入" action={() => window.electronAPI?.agentLoginAnthropic?.()} actionLabel="登入" />
       </div>
 
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-medium text-gray-800 dark:text-gray-200">模型</span>
+      <div className="mb-5">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium text-gray-800 dark:text-gray-200">模型</span>
+          <div className="flex items-center gap-3">
+            <button onClick={checkAvailability} disabled={checking}
+              className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:text-blue-700 disabled:opacity-50">
+              <RefreshCw className={"w-3 h-3" + (checking ? " animate-spin" : "")} />檢查可用性
+            </button>
+            <label className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+              <input type="checkbox" checked={showAll}
+                onChange={(e) => { setShowAll(e.target.checked); loadModels({ showAll: e.target.checked }); }}
+                className="w-3.5 h-3.5 accent-blue-500" />
+              顯示全部
+            </label>
+          </div>
+        </div>
         <select value={cfg.model} onChange={(e) => set({ model: e.target.value })}
-          className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-          <option value="anthropic">Anthropic(Claude)</option>
-          <option value="qwen2.5:cloud">Ollama Cloud</option>
+          className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+          <option value={claudeModel}>Claude(Anthropic 官方)— 你的帳號</option>
+          {models.map((m) => (
+            <option key={m.name} value={m.name}>
+              {m.name}{m.tier === "subscription" ? " — 需訂閱" : m.tier === "unknown" ? " — 未知" : " — 免費"}
+            </option>
+          ))}
         </select>
       </div>
 

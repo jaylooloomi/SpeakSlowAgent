@@ -1,6 +1,9 @@
 // 純函式:依模型組出 spawn Claude Code 的 {program, args, cwd, env}。
 // 機制照抄 app-free-cowork/launcher/src-tauri/src/launcher.rs:
-//  model "anthropic" → 直接跑 claude;其餘視為 ollama 模型 → ollama launch claude -- claude --model <m>
+//  model "claude" → 直接跑 claude(走 Anthropic 帳號);其餘視為 ollama 模型(如
+//  "gemma3:12b-cloud")→ ollama launch claude -- claude --model <m>
+const { CLAUDE_MODEL } = require("./agentCatalog.js");
+
 const CLAUDE_FLAGS = (systemPrompt, prompt) => [
   "--append-system-prompt", systemPrompt,
   "--dangerously-skip-permissions",
@@ -9,10 +12,10 @@ const CLAUDE_FLAGS = (systemPrompt, prompt) => [
 ];
 
 function buildAgentSpawn({ prompt, model, cwd, systemPrompt }) {
-  if (model === "anthropic") {
+  if (model === CLAUDE_MODEL || model === "anthropic") { // "anthropic" = 舊設定相容
     return { program: "claude", args: CLAUDE_FLAGS(systemPrompt, prompt), cwd, env: {} };
   }
-  // ollama 透傳路徑(model = ollama 模型名,如 "qwen2.5:cloud")
+  // ollama 透傳路徑(model = ollama 模型名,如 "gemma3:12b-cloud")
   return {
     program: "ollama",
     args: ["launch", "claude", "--", "claude", "--model", model, ...CLAUDE_FLAGS(systemPrompt, prompt)],

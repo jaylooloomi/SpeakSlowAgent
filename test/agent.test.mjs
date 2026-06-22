@@ -2,8 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildAgentSpawn, parseStreamJsonLine } from "../src/helpers/agentSpawn.js";
 
-test("anthropic: runs claude directly, no --model, not via ollama", () => {
-  const s = buildAgentSpawn({ prompt: "整理桌面", model: "anthropic", cwd: "C:\\w", systemPrompt: "SYS" });
+test("claude: runs claude directly, no --model, not via ollama", () => {
+  const s = buildAgentSpawn({ prompt: "整理桌面", model: "claude", cwd: "C:\\w", systemPrompt: "SYS" });
   assert.equal(s.program, "claude");
   assert.deepEqual(s.args, [
     "--append-system-prompt", "SYS", "--dangerously-skip-permissions",
@@ -14,10 +14,10 @@ test("anthropic: runs claude directly, no --model, not via ollama", () => {
 });
 
 test("ollama: via `ollama launch claude`, with --model and output cap", () => {
-  const s = buildAgentSpawn({ prompt: "hi", model: "qwen2.5:cloud", cwd: "C:\\g", systemPrompt: "SYS" });
+  const s = buildAgentSpawn({ prompt: "hi", model: "gemma3:12b-cloud", cwd: "C:\\g", systemPrompt: "SYS" });
   assert.equal(s.program, "ollama");
   assert.deepEqual(s.args, [
-    "launch", "claude", "--", "claude", "--model", "qwen2.5:cloud",
+    "launch", "claude", "--", "claude", "--model", "gemma3:12b-cloud",
     "--append-system-prompt", "SYS", "--dangerously-skip-permissions",
     "-p", "--output-format", "stream-json", "--verbose", "hi",
   ]);

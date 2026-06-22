@@ -320,6 +320,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // Agent 模式
   agentDetectBackends: () => ipcRenderer.invoke("agent-detect-backends"),
+  agentListModels: (opts) => ipcRenderer.invoke("agent-list-models", opts),
   agentGetConfig: () => ipcRenderer.invoke("agent-get-config"),
   agentSetConfig: (patch) => ipcRenderer.invoke("agent-set-config", patch),
   agentRunTask: (text) => ipcRenderer.invoke("agent-run-task", text),
