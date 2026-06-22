@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildAgentSpawn } from "../src/helpers/agentSpawn.js";
+import { buildAgentSpawn, parseStreamJsonLine } from "../src/helpers/agentSpawn.js";
 
 test("anthropic: runs claude directly, no --model, not via ollama", () => {
   const s = buildAgentSpawn({ prompt: "整理桌面", model: "anthropic", cwd: "C:\\w", systemPrompt: "SYS" });
@@ -22,4 +22,17 @@ test("ollama: via `ollama launch claude`, with --model and output cap", () => {
     "-p", "--output-format", "stream-json", "--verbose", "hi",
   ]);
   assert.equal(s.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS, "16384");
+});
+
+test("parse assistant text event → extract text", () => {
+  const line = JSON.stringify({ type: "assistant", message: { content: [{ type: "text", text: "好的,我來整理。" }] } });
+  assert.deepEqual(parseStreamJsonLine(line), { kind: "text", text: "好的,我來整理。" });
+});
+test("parse result event → final text + isError", () => {
+  const line = JSON.stringify({ type: "result", subtype: "success", result: "完成", is_error: false });
+  assert.deepEqual(parseStreamJsonLine(line), { kind: "result", text: "完成", isError: false });
+});
+test("non-JSON / unrelated line → null (skip)", () => {
+  assert.equal(parseStreamJsonLine("not json"), null);
+  assert.equal(parseStreamJsonLine(JSON.stringify({ type: "system" })), null);
 });

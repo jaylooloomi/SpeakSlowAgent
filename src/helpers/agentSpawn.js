@@ -21,4 +21,19 @@ function buildAgentSpawn({ prompt, model, cwd, systemPrompt }) {
   };
 }
 
-module.exports = { buildAgentSpawn };
+// 解析 claude stream-json 的一行 JSONL。回傳 {kind:'text'|'result', text, isError?} 或 null(略過)。
+function parseStreamJsonLine(line) {
+  let obj;
+  try { obj = JSON.parse(line); } catch { return null; }
+  if (!obj || typeof obj !== "object") return null;
+  if (obj.type === "assistant" && obj.message?.content) {
+    const text = obj.message.content.filter((c) => c.type === "text").map((c) => c.text).join("");
+    return text ? { kind: "text", text } : null;
+  }
+  if (obj.type === "result") {
+    return { kind: "result", text: typeof obj.result === "string" ? obj.result : "", isError: obj.is_error === true };
+  }
+  return null;
+}
+
+module.exports = { buildAgentSpawn, parseStreamJsonLine };
