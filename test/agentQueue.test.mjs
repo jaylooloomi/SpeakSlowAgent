@@ -25,7 +25,7 @@ function makeHarness(opts = {}) {
     return child;
   };
   const emit = (p) => events.push(p);
-  const mgr = new AgentManager(console, null, { spawn, emit });
+  const mgr = new AgentManager(console, null, { spawn, emit, db: opts.db });
   return { mgr, children, events };
 }
 const last = (events, id) => [...events].reverse().find((e) => e.id === id);
@@ -75,6 +75,18 @@ test("spawn throwing during drain still recovers (not stuck)", () => {
   assert.equal(last(events, b.id).status, "error");
   assert.equal(mgr.isBusy(), false);
   assert.equal(mgr.current, null);
+});
+
+test("completed task is persisted to db history (survives restart)", () => {
+  const store = {};
+  const db = { getSetting: (k, d) => (k in store ? store[k] : d), setSetting: (k, v) => { store[k] = v; } };
+  const { mgr, children } = makeHarness({ db });
+  const a = mgr.runTask({ prompt: "做事", model: "sonnet", cwd: "C:\\w", source: "anthropic" });
+  children[0].emit("close", 0);
+  const hist = store["agent_history"];
+  assert.ok(Array.isArray(hist) && hist.length === 1);
+  assert.equal(hist[0].id, a.id);
+  assert.equal(hist[0].status, "done");
 });
 
 test("codex task uses the codex parser (agent_message → text)", () => {

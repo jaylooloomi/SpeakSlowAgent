@@ -159,7 +159,7 @@ try {
 
 // 初始化 windowManager，傳入 databaseManager 以支援設定讀取
 const windowManager = new WindowManager(databaseManager);
-const agentManager = new AgentManager(logger, windowManager);
+const agentManager = new AgentManager(logger, windowManager, { db: databaseManager });
 const trayManager = new TrayManager();
 
 // IPC处理器将在 app ready 后初始化

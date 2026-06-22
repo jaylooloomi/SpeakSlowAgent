@@ -118,6 +118,8 @@ module.exports = function register(ctx) {
   });
   ipcMain.handle("agent-stop-task", () => ctx.agentManager.stop());
   ipcMain.handle("agent-cancel-task", (e, id) => ctx.agentManager.cancel(id));
+  // 已完成任務歷史(重啟後 AgentPanel 載回「已完成」)。
+  ipcMain.handle("agent-history", () => { try { return ctx.databaseManager.getSetting("agent_history", []) || []; } catch { return []; } });
 
   // 選工作資料夾(專案模式):開原生資料夾對話框 → 存 agent_project_dir。
   ipcMain.handle("agent-pick-project-dir", async () => {

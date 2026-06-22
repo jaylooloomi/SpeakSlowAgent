@@ -40,9 +40,20 @@ class AgentManager {
     this.windowManager = windowManager;
     this._spawn = deps.spawn || spawn;
     this._emitFn = deps.emit || null;
+    this._db = deps.db || null; // 持久化歷史用(可選)
     this.current = null; // { id, child, status, prompt }
     this.queue = [];      // [{ id, prompt, model, cwd, cli }]
-    this.nextId = 1;
+    this.nextId = Date.now(); // 時間戳起始 → 重啟後不會與持久化歷史的舊 id 撞號
+  }
+
+  // 持久化已完成任務(done/error/stopped/cancelled)到 DB,重啟後仍可在「已完成」看到。
+  _persistDone(task) {
+    if (!this._db) return;
+    try {
+      const hist = this._db.getSetting("agent_history", []) || [];
+      hist.unshift({ id: task.id, prompt: task.prompt, status: task.status, text: task.text || "", tools: task.tools || [], ts: Date.now() });
+      this._db.setSetting("agent_history", hist.slice(0, 50));
+    } catch (e) { /* 持久化失敗不影響執行 */ }
   }
 
   isBusy() { return !!this.current && this.current.status === "running"; }
@@ -117,7 +128,9 @@ class AgentManager {
       this.current = null;
       // 非零退出且沒有任何輸出時,退而用項目級錯誤訊息當診斷(否則面板只看到 ❌ 沒原因)。
       const text = code === 0 ? lastText : (lastText || lastItemError || "");
-      this._emit({ id, status: code === 0 ? "done" : "error", prompt, text, tools: [...tools] });
+      const payload = { id, status: code === 0 ? "done" : "error", prompt, text, tools: [...tools] };
+      this._emit(payload);
+      this._persistDone(payload);
       this._next();
     });
   }
@@ -132,7 +145,9 @@ class AgentManager {
     const i = this.queue.findIndex((t) => t.id === id);
     if (i >= 0) {
       const [item] = this.queue.splice(i, 1);
-      this._emit({ id, status: "cancelled", prompt: item.prompt, text: "已取消" });
+      const payload = { id, status: "cancelled", prompt: item.prompt, text: "已取消" };
+      this._emit(payload);
+      this._persistDone(payload);
       return { success: true };
     }
     if (this.current && this.current.id === id) return this.stop();
@@ -142,7 +157,9 @@ class AgentManager {
   stop() {
     if (this.current && this.current.child) { try { this.current.child.kill(); } catch (e) {} }
     if (this.current) {
-      this._emit({ id: this.current.id, status: "stopped", prompt: this.current.prompt, text: "已停止" });
+      const payload = { id: this.current.id, status: "stopped", prompt: this.current.prompt, text: "已停止" };
+      this._emit(payload);
+      this._persistDone(payload);
       this.current = null;
     }
     this._next(); // 停掉當前後,接著跑佇列下一個

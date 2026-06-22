@@ -24,6 +24,7 @@ export default function AgentPanel() {
   useEffect(() => {
     refresh();
     api.agentGetConfig?.().then((c) => { if (c) { setCfg(c); loadModels({ source: c.source || "anthropic" }); } }).catch(() => {});
+    api.agentHistory?.().then((h) => { if (Array.isArray(h) && h.length) setTasks(h); }).catch(() => {}); // 載回已完成歷史
   }, []);
   useEffect(() => {
     if (!api.onAgentTaskUpdate) return;
