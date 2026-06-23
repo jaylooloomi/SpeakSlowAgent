@@ -163,7 +163,16 @@ export default {
       workdirGeneral: '一般(下載/SpeakSlowAgent)',
       workdirProject: '專案資料夾',
       pickFolder: '選擇…',
-      noFolder: '(尚未選擇資料夾)'
+      noFolder: '(尚未選擇資料夾)',
+      scheduleSection: '排程代辦',
+      schedPromptPh: '要排程的指令…',
+      schedOnce: '一次性',
+      schedDaily: '每天',
+      schedWeekly: '每週',
+      schedAdd: '新增',
+      schedNext: '下次',
+      schedNone: '無排程',
+      weekdays: ['日', '一', '二', '三', '四', '五', '六']
     },
     emoji: {
       title: '語音符號',

@@ -2,6 +2,7 @@ const { ipcMain } = require("electron");
 const { spawnSync, spawn, execFile } = require("child_process");
 const { promisify } = require("util");
 const catalog = require("../agentCatalog.js");
+const { computeNextRun, processDue } = require("../agentSchedule.js");
 
 const pExecFile = promisify(execFile);
 // 非阻塞偵測。win32 用 shell:true 才能跑 .cmd/.bat shim(如 codex.cmd / npm.cmd)。
@@ -105,17 +106,55 @@ module.exports = function register(ctx) {
     return dir;
   }
 
-  // 由「CLI 工具」+「模型來源」衍生實際 cli/model:
-  //  anthropic→claude-code+claude;chatgpt→codex+codexModel;ollama→agent_cli(可 claude-code 或 codex)+ollamaModel。
+  // 由「模型來源」衍生實際 cli/model:anthropic→claude-code+claude 別名;chatgpt→codex+預設(不帶 -m);
+  // ollama→agent_cli(可 claude-code 或 codex)+ollama 雲端模型。run-task 與排程共用此邏輯。
+  function deriveCliModel(source) {
+    if (source === "chatgpt") return { cli: "codex", model: "default" };
+    if (source === "ollama") return { cli: ctx.databaseManager.getSetting("agent_cli", "claude-code"), model: ctx.databaseManager.getSetting("agent_ollama_model", catalog.DEFAULT_MODEL) };
+    return { cli: "claude-code", model: ctx.databaseManager.getSetting("agent_anthropic_model", catalog.CLAUDE_DEFAULT_MODEL) };
+  }
+
   ipcMain.handle("agent-run-task", (e, text) => {
     if (!text || !text.trim()) return { success: false, error: "空白指令" };
     const source = ctx.databaseManager.getSetting("agent_source", "anthropic");
-    let cli, model;
-    if (source === "anthropic") { cli = "claude-code"; model = ctx.databaseManager.getSetting("agent_anthropic_model", catalog.CLAUDE_DEFAULT_MODEL); }
-    else if (source === "chatgpt") { cli = "codex"; model = "default"; } // ChatGPT 帳號不帶 -m,model 僅佔位
-    else { cli = ctx.databaseManager.getSetting("agent_cli", "claude-code"); model = ctx.databaseManager.getSetting("agent_ollama_model", catalog.DEFAULT_MODEL); } // ollama
+    const { cli, model } = deriveCliModel(source);
     return ctx.agentManager.runTask({ prompt: text, model, cwd: resolveCwd(), cli, source });
   });
+
+  // 排程代辦(一次性 + 每天/每週)。存 agent_schedules;主程序每 30 秒檢查到期項目並執行。
+  ipcMain.handle("agent-add-schedule", (e, p) => {
+    try {
+      if (!p || !p.prompt || !p.prompt.trim()) return { success: false, error: "空白指令" };
+      const source = ctx.databaseManager.getSetting("agent_source", "anthropic");
+      const { cli, model } = deriveCliModel(source);
+      const spec = { type: p.type || "once", at: p.at, time: p.time, dow: p.dow };
+      const s = { id: Date.now(), prompt: p.prompt.trim(), ...spec, source, cli, model, nextRun: computeNextRun(spec, Date.now()) };
+      const list = ctx.databaseManager.getSetting("agent_schedules", []) || [];
+      list.push(s);
+      ctx.databaseManager.setSetting("agent_schedules", list);
+      return { success: true, schedule: s };
+    } catch (err) { return { success: false, error: err.message }; }
+  });
+  ipcMain.handle("agent-list-schedules", () => { try { return ctx.databaseManager.getSetting("agent_schedules", []) || []; } catch { return []; } });
+  ipcMain.handle("agent-delete-schedule", (e, id) => {
+    try {
+      const list = (ctx.databaseManager.getSetting("agent_schedules", []) || []).filter((s) => s.id !== id);
+      ctx.databaseManager.setSetting("agent_schedules", list);
+      return { success: true };
+    } catch (err) { return { success: false, error: err.message }; }
+  });
+
+  // 排程檢查迴圈:每 30 秒,到期的丟給 agent 執行(一次性執行後移除、週期推到下一次)。
+  setInterval(() => {
+    try {
+      const list = ctx.databaseManager.getSetting("agent_schedules", []) || [];
+      if (!list.length) return;
+      const { due, kept } = processDue(list, Date.now());
+      if (!due.length) return;
+      for (const d of due) ctx.agentManager.runTask({ prompt: d.prompt, model: d.model, cwd: resolveCwd(), cli: d.cli, source: d.source });
+      ctx.databaseManager.setSetting("agent_schedules", kept);
+    } catch (e2) { /* 忽略單次錯誤 */ }
+  }, 30000);
   ipcMain.handle("agent-stop-task", () => ctx.agentManager.stop());
   ipcMain.handle("agent-cancel-task", (e, id) => ctx.agentManager.cancel(id));
   // 已完成任務歷史(重啟後 AgentPanel 載回「已完成」)。

@@ -163,7 +163,16 @@ export default {
       workdirGeneral: 'General (Downloads/SpeakSlowAgent)',
       workdirProject: 'Project folder',
       pickFolder: 'Choose…',
-      noFolder: '(no folder selected)'
+      noFolder: '(no folder selected)',
+      scheduleSection: 'Scheduled tasks',
+      schedPromptPh: 'Task to schedule…',
+      schedOnce: 'Once',
+      schedDaily: 'Daily',
+      schedWeekly: 'Weekly',
+      schedAdd: 'Add',
+      schedNext: 'Next',
+      schedNone: 'No schedules',
+      weekdays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
     },
     emoji: {
       title: 'Voice symbols',

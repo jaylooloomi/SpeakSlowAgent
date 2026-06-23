@@ -14,6 +14,8 @@ export default function AgentPanel() {
   const [checking, setChecking] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [dismissed, setDismissed] = useState([]);
+  const [sched, setSched] = useState([]);
+  const [schedForm, setSchedForm] = useState({ prompt: "", type: "once", at: "", time: "09:00", dow: 1 });
 
   const api = window.electronAPI || {};
   const refresh = () => api.agentDetectBackends?.().then(setBackends).catch(() => {});
@@ -25,6 +27,7 @@ export default function AgentPanel() {
     refresh();
     api.agentGetConfig?.().then((c) => { if (c) { setCfg(c); loadModels({ source: c.source || "anthropic" }); } }).catch(() => {});
     api.agentHistory?.().then((h) => { if (Array.isArray(h) && h.length) setTasks(h); }).catch(() => {}); // 載回已完成歷史
+    loadSched();
   }, []);
   useEffect(() => {
     if (!api.onAgentTaskUpdate) return;
@@ -46,6 +49,17 @@ export default function AgentPanel() {
   };
   const onSource = (source) => { set({ source }); setShowAll(false); loadModels({ source }); };
   const pickDir = () => api.agentPickProjectDir?.().then((r) => { if (r && r.success) set({ projectDir: r.dir, workMode: "project" }); }).catch(() => {});
+  const loadSched = () => api.agentListSchedules?.().then((s) => setSched(Array.isArray(s) ? s : [])).catch(() => {});
+  const addSched = () => {
+    const f = schedForm;
+    if (!f.prompt.trim()) return;
+    const payload = { prompt: f.prompt, type: f.type };
+    if (f.type === "once") { if (!f.at) return; payload.at = new Date(f.at).getTime(); }
+    else { payload.time = f.time; if (f.type === "weekly") payload.dow = Number(f.dow); }
+    api.agentAddSchedule?.(payload).then((r) => { if (r && r.success) { setSchedForm({ ...f, prompt: "" }); loadSched(); } }).catch(() => {});
+  };
+  const delSched = (id) => api.agentDeleteSchedule?.(id).then(loadSched).catch(() => {});
+  const fmtWhen = (ms) => { try { return new Date(ms).toLocaleString(); } catch (e) { return ""; } };
 
   const Btn = ({ onClick, ghost, children }) => (
     <button onClick={onClick} className={"px-3 py-1 text-xs rounded-lg " + (ghost
@@ -248,6 +262,45 @@ export default function AgentPanel() {
           </div>
         );
       })}
+
+      {/* 排程代辦:一次性 / 每天 / 每週 */}
+      <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 mt-4 flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{T("scheduleSection")}</h4>
+      <div className="space-y-2 mb-2">
+        <input value={schedForm.prompt} onChange={(e) => setSchedForm({ ...schedForm, prompt: e.target.value })} placeholder={T("schedPromptPh")}
+          className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" />
+        <div className="flex items-center gap-2 flex-wrap">
+          <select value={schedForm.type} onChange={(e) => setSchedForm({ ...schedForm, type: e.target.value })}
+            className="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+            <option value="once">{T("schedOnce")}</option>
+            <option value="daily">{T("schedDaily")}</option>
+            <option value="weekly">{T("schedWeekly")}</option>
+          </select>
+          {schedForm.type === "once" && (
+            <input type="datetime-local" value={schedForm.at} onChange={(e) => setSchedForm({ ...schedForm, at: e.target.value })}
+              className="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" />
+          )}
+          {schedForm.type === "weekly" && (
+            <select value={schedForm.dow} onChange={(e) => setSchedForm({ ...schedForm, dow: e.target.value })}
+              className="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+              {(T("weekdays") || []).map((w, i) => <option key={i} value={i}>{w}</option>)}
+            </select>
+          )}
+          {schedForm.type !== "once" && (
+            <input type="time" value={schedForm.time} onChange={(e) => setSchedForm({ ...schedForm, time: e.target.value })}
+              className="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" />
+          )}
+          <button onClick={addSched} className="px-3 py-1.5 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded-lg">{T("schedAdd")}</button>
+        </div>
+      </div>
+      {sched.length === 0 ? <p className="text-xs text-gray-400">{T("schedNone")}</p> : sched.map((s) => (
+        <div key={s.id} className="flex items-center justify-between gap-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg mb-2">
+          <span className="text-sm truncate text-gray-800 dark:text-gray-200 min-w-0">
+            {s.prompt}
+            <span className="block text-xs text-gray-400">{T("schedNext")}: {fmtWhen(s.nextRun)}{s.type !== "once" ? " · " + (s.type === "daily" ? T("schedDaily") : T("schedWeekly")) : ""}</span>
+          </span>
+          <button onClick={() => delSched(s.id)} className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-red-600 flex-shrink-0"><X className="w-3 h-3" /></button>
+        </div>
+      ))}
     </div>
   );
 }

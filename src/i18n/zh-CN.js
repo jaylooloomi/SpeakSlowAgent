@@ -163,7 +163,16 @@ export default {
       workdirGeneral: '一般(下载/SpeakSlowAgent)',
       workdirProject: '项目文件夹',
       pickFolder: '选择…',
-      noFolder: '(尚未选择文件夹)'
+      noFolder: '(尚未选择文件夹)',
+      scheduleSection: '计划任务',
+      schedPromptPh: '要计划的指令…',
+      schedOnce: '一次性',
+      schedDaily: '每天',
+      schedWeekly: '每周',
+      schedAdd: '新增',
+      schedNext: '下次',
+      schedNone: '无计划',
+      weekdays: ['日', '一', '二', '三', '四', '五', '六']
     },
     emoji: {
       title: '语音符号',
