@@ -241,8 +241,9 @@ export default function AgentPanel() {
           <div key={t2.id} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg mb-2">
             <div className="flex items-center gap-2 p-3">
               <button onClick={() => setDismissed((d) => [...d, t2.id])} title={T("dismissTip")}
-                className={"text-sm font-bold w-4 flex-shrink-0 " + (failed ? "text-red-500 hover:text-red-600" : "text-green-500 hover:text-green-600")}>
-                {failed ? "✗" : "○"}
+                className="group text-sm font-bold w-4 flex-shrink-0">
+                <span className={"group-hover:hidden " + (failed ? "text-red-500" : "text-green-500")}>{failed ? "✗" : "○"}</span>
+                <span className="hidden group-hover:inline text-green-600">✓</span>
               </button>
               {hasDetail ? (
                 <button onClick={() => setExpandedId(expanded ? null : t2.id)} className="flex-1 min-w-0 flex items-center gap-1 text-left text-sm text-gray-800 dark:text-gray-200">
