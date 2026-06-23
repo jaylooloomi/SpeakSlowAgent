@@ -74,7 +74,7 @@ const CLAUDE_FLAGS = (systemPrompt, prompt) => [
   prompt,
 ];
 
-export function buildAgentSpawn({ prompt, model, cwd, systemPrompt }) {
+function buildAgentSpawn({ prompt, model, cwd, systemPrompt }) {
   if (model === "anthropic") {
     return { program: "claude", args: CLAUDE_FLAGS(systemPrompt, prompt), cwd, env: {} };
   }
@@ -86,7 +86,10 @@ export function buildAgentSpawn({ prompt, model, cwd, systemPrompt }) {
     env: { CLAUDE_CODE_MAX_OUTPUT_TOKENS: "16384" },
   };
 }
+
+module.exports = { buildAgentSpawn };
 ```
+> **模組系統**:`agentSpawn.js` 用 **CommonJS**(`module.exports`),因為 `agentManager.js` 會 `require()` 它,而 Electron 31 = Node 20 不支援 `require(ESM)`。`.mjs` 測試用 `import { buildAgentSpawn } from "..."` 仍可(Node 的 CJS 具名匯入互通)。Task 2 會把 `module.exports` 更新為 `{ buildAgentSpawn, parseStreamJsonLine }`。
 
 - [ ] **Step 4:跑測試確認通過** — Run: `node --test test/agent.test.mjs` — Expected: PASS(2 tests)。
 
@@ -123,7 +126,7 @@ test("非 JSON / 無關行 → null(略過)", () => {
 - [ ] **Step 3:實作**(append 到 `src/helpers/agentSpawn.js`):
 ```js
 // 解析 claude stream-json 的一行 JSONL。回傳 {kind:'text'|'result', text, isError?} 或 null(略過)。
-export function parseStreamJsonLine(line) {
+function parseStreamJsonLine(line) {
   let obj;
   try { obj = JSON.parse(line); } catch { return null; }
   if (!obj || typeof obj !== "object") return null;
@@ -136,6 +139,10 @@ export function parseStreamJsonLine(line) {
   }
   return null;
 }
+```
+並把檔尾的 `module.exports` 從 `{ buildAgentSpawn }` 改為:
+```js
+module.exports = { buildAgentSpawn, parseStreamJsonLine };
 ```
 
 - [ ] **Step 4:跑測試確認通過** — Run: `node --test test/agent.test.mjs` — Expected: PASS(5 tests)。
